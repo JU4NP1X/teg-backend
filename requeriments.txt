@@ -1,0 +1,6 @@
+Django
+djangorestframework
+django-crontab
+requests
+tqdm
+beautifulsoup4

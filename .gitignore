@@ -1,0 +1,29 @@
+# Ignore files and directories that should not be committed to the repository
+
+# Python virtual environment
+venv/
+
+# Local configuration files
+*.env
+*.pyc
+
+# Cache files
+__pycache__/
+*.pyc
+
+# Databases
+*.sqlite3
+
+# Log files
+logs/
+*.log
+
+# Backup files
+*.bak
+*.swp
+
+# IDE configuration directory
+.idea/
+
+# Static files directory
+staticfiles/
