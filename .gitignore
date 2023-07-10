@@ -4,7 +4,7 @@
 venv/
 
 # Local configuration files
-*.env
+.env
 *.pyc
 
 # Cache files
@@ -13,6 +13,7 @@ __pycache__/
 
 # Databases
 *.sqlite3
+*.sql
 
 # Log files
 logs/
