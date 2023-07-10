@@ -5,4 +5,5 @@ router = routers.DefaultRouter()
 
 router.register('api/thesaurus', ThesaurusViewSet, basename='thesaurus')
 
+
 urlpatterns = router.urls

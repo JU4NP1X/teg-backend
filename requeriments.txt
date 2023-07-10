@@ -4,3 +4,5 @@ django-crontab
 requests
 tqdm
 beautifulsoup4
+mysqlclient
+python-dotenv
