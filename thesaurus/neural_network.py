@@ -15,12 +15,14 @@ from transformers import BertTokenizer, BertModel
 from langdetect import detect
 import shutil
 
-MAX_LEN = 256
-TRAIN_BATCH_SIZE = 8
-VALID_BATCH_SIZE = 8
-EPOCHS = 2
-LEARNING_RATE = 1e-05
-MAX_MEMORY_GB = 5
+THESAURUS_MODEL_PATH = os.environ.get(
+    "THESAURUS_MODEL_PATH", "/home/juan/projects/teg/backend"
+)
+THESAURUS_MAX_LEN = os.environ.get("THESAURUS_MAX_LEN", 300)
+THESAURUS_TRAIN_BATCH_SIZE = os.environ.get("THESAURUS_TRAIN_BATCH_SIZE", 3)
+THESAURUS_VALID_BATCH_SIZE = os.environ.get("THESAURUS_VALID_BATCH_SIZE", 1)
+THESAURUS_LEARNING_RATE = os.environ.get("THESAURUS_LEARNING_RATE", 1e-05)
+THESAURUS_EPOCHS = os.environ.get("THESAURUS_EPOCHS", 10)
 
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
@@ -72,8 +74,8 @@ class CustomDataset:
         inputs = self.tokenizer.encode_plus(
             translated_text,
             None,
-            max_length=MAX_LEN,
-            padding='max_length',
+            max_length=THESAURUS_MAX_LEN,
+            padding="max_length",
             add_special_tokens=True,
             return_token_type_ids=True,
             truncation=True,
@@ -97,7 +99,7 @@ class TextClassifier:
         self.model = None
         self.label_encoder = LabelEncoder()
         self.mlb = MultiLabelBinarizer()
-        self.model_path = os.getenv("THESAURUS_MODEL_PATH")
+        self.model_path = THESAURUS_MODEL_PATH
 
     def preprocess_data(self):
         datasets = (
@@ -309,14 +311,20 @@ class TextClassifier:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.create_model()
         self.optimizer = torch.optim.Adam(
-            params=self.model.parameters(), lr=LEARNING_RATE
+            params=self.model.parameters(), lr=THESAURUS_LEARNING_RATE
         )
         train_data_loader = torch.utils.data.DataLoader(
-            train_data, batch_size=TRAIN_BATCH_SIZE, shuffle=True, num_workers=0
+            train_data,
+            batch_size=THESAURUS_TRAIN_BATCH_SIZE,
+            shuffle=True,
+            num_workers=0,
         )
 
         val_data_loader = torch.utils.data.DataLoader(
-            val_data, batch_size=VALID_BATCH_SIZE, shuffle=False, num_workers=0
+            val_data,
+            batch_size=THESAURUS_VALID_BATCH_SIZE,
+            shuffle=False,
+            num_workers=0,
         )
 
-        self.train_model(EPOCHS, train_data_loader, val_data_loader)
+        self.train_model(THESAURUS_EPOCHS, train_data_loader, val_data_loader)
