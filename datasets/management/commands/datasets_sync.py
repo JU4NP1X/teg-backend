@@ -3,8 +3,6 @@ from itertools import islice
 from tqdm import tqdm
 from thesaurus.models import Thesaurus
 from ...sync import DatasetsScraper
-from ...models import Datasets
-
 
 class Command(BaseCommand):
     help = "This is the sincronizer of the dataset for the thesaurus model"

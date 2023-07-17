@@ -17,13 +17,11 @@ class ThesaurusScraper:
         """
         # Loop through the alphabet and get the results for each letter
         for letter in tqdm(self.alphabet, desc="Processing letters"):
-            results = self.get_results(letter)
-            Thesaurus.objects.bulk_create(results, ignore_conflicts=True)
+            self.get_results(letter)
 
         # Loop through the vowels with accents and get the results for each vowel
         for vowel in tqdm(self.vowels_with_accents, desc="Processing vowels"):
-            results = self.get_results(urllib.parse.quote(vowel))
-            Thesaurus.objects.bulk_create(results, ignore_conflicts=True)
+            self.get_results(urllib.parse.quote(vowel))
         """
         # results_2_detail = Thesaurus.objects.exclude(translations__isnull=False)
         results_2_detail = Thesaurus.objects.exclude(translations__isnull=False)
@@ -56,11 +54,15 @@ class ThesaurusScraper:
                 if a:
                     link = a["href"]
                     name = a.text.strip()
-                    results.append(Thesaurus(link=link, name=name))
+                    Thesaurus.objects.update_or_create(
+                        name=name.strip(), defaults={"link": link}
+                    )
                 replaced = li.find("span")
                 if replaced:
                     name = a.text.strip()
-                    results.append(Thesaurus(deprecated=True, name=name))
+                    Thesaurus.objects.update_or_create(
+                        name=name.strip(), defaults={"deprecated": True}
+                    )
 
             # Increment the offset and get the next page of results
             offset += 250
