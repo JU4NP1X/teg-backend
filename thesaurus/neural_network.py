@@ -104,7 +104,6 @@ class TextClassifier:
     def preprocess_data(self):
         datasets = (
             Datasets.objects.all()
-            .order_by("-id")[:100]
             .annotate(
                 CONTEXT=Concat(
                     "paper_name", Value(": "), "summary", output_field=CharField()
