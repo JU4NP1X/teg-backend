@@ -23,6 +23,11 @@ logs/
 *.bak
 *.swp
 
+# Models
+*.pt
+
+
+
 # IDE configuration directory
 .idea/
 

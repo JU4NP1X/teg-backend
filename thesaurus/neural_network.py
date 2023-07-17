@@ -102,6 +102,7 @@ class TextClassifier:
     def preprocess_data(self):
         datasets = (
             Datasets.objects.all()
+            .order_by("-id")[:100]
             .annotate(
                 CONTEXT=Concat(
                     "paper_name", Value(": "), "summary", output_field=CharField()
@@ -144,7 +145,7 @@ class TextClassifier:
 
         # Split the data into training, validation, and test sets
         train_df = df.sample(frac=0.8, random_state=200).reset_index(drop=True)
-        val_df = train_df.drop(train_df.index).reset_index(drop=True)
+        val_df = df.drop(train_df.index).reset_index(drop=True)
         self.outputs = binary_labels.columns.values.tolist()
         self.num_outputs = len(label_ids)
         print(train_df.head())
@@ -286,7 +287,7 @@ class TextClassifier:
         return checkpoint["epoch"], valid_loss_min.item()
 
     def save_ckp(self, state, is_best):
-        c_path = f"{self.model_path}/curr_ckpt"
+        c_path = f"{self.model_path}/curr_ckpt.pt"
         b_path = f"{self.model_path}/best_model.pt"
         # save checkpoint data to the path given, checkpoint_path
         torch.save(state, c_path)
