@@ -1,7 +1,6 @@
 import requests
 from requests.exceptions import Timeout
 from bs4 import BeautifulSoup
-import urllib.parse
 from tqdm import tqdm
 from .models import Thesaurus, Translations
 
@@ -23,7 +22,7 @@ class ThesaurusScraper:
         for vowel in tqdm(self.vowels_with_accents, desc="Processing vowels"):
             self.get_results(urllib.parse.quote(vowel))
         """
-        # results_2_detail = Thesaurus.objects.exclude(translations__isnull=False)
+        
         results_2_detail = Thesaurus.objects.exclude(translations__isnull=False)
         for result in tqdm(results_2_detail, desc="Getting details"):
             self.get_details(result)

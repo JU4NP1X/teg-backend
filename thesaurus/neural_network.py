@@ -6,23 +6,22 @@ from sklearn.preprocessing import LabelEncoder
 from django.db.models.functions import Concat
 from django.db.models import Value, CharField, Subquery, OuterRef, Func
 import numpy as np
-from translate import Translator
 import torch.nn.functional as F
 from .models import Thesaurus
-from datasets.models import Datasets
+from datasets.models import Datasets_English_Translations
+from tqdm import tqdm
 from sklearn.preprocessing import MultiLabelBinarizer
 from transformers import BertTokenizer, BertModel
-from langdetect import detect
 import shutil
 
 THESAURUS_MODEL_PATH = os.environ.get(
     "THESAURUS_MODEL_PATH", "/home/juan/projects/teg/backend"
 )
-THESAURUS_MAX_LEN = os.environ.get("THESAURUS_MAX_LEN", 300)
-THESAURUS_TRAIN_BATCH_SIZE = os.environ.get("THESAURUS_TRAIN_BATCH_SIZE", 3)
-THESAURUS_VALID_BATCH_SIZE = os.environ.get("THESAURUS_VALID_BATCH_SIZE", 1)
-THESAURUS_LEARNING_RATE = os.environ.get("THESAURUS_LEARNING_RATE", 1e-05)
-THESAURUS_EPOCHS = os.environ.get("THESAURUS_EPOCHS", 10)
+THESAURUS_MAX_LEN = int(os.environ.get("THESAURUS_MAX_LEN", 256))
+THESAURUS_TRAIN_BATCH_SIZE = int(os.environ.get("THESAURUS_TRAIN_BATCH_SIZE", 3))
+THESAURUS_VALID_BATCH_SIZE = int(os.environ.get("THESAURUS_VALID_BATCH_SIZE", 1))
+THESAURUS_LEARNING_RATE = float(os.environ.get("THESAURUS_LEARNING_RATE", 1e-05))
+THESAURUS_EPOCHS = int(os.environ.get("THESAURUS_EPOCHS", 2))
 
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
@@ -62,17 +61,8 @@ class CustomDataset:
 
     def __getitem__(self, idx):
         title = str(self.title[idx])
-        title = " ".join(title.split())
-        try:
-            origin_aplha2 = detect(title)
-            translator = Translator(from_lang=origin_aplha2, to_lang="en")
-            translated_text = translator.translate(title)
-        except Exception as e:
-            print(f"Error translating text: {e}")
-            translated_text = title
-
         inputs = self.tokenizer.encode_plus(
-            translated_text,
+            title,
             None,
             max_length=THESAURUS_MAX_LEN,
             padding="max_length",
@@ -102,20 +92,31 @@ class TextClassifier:
         self.model_path = THESAURUS_MODEL_PATH
 
     def preprocess_data(self):
-        datasets = (
-            Datasets.objects.all()
-            .annotate(
-                CONTEXT=Concat(
-                    "paper_name", Value(": "), "summary", output_field=CharField()
-                ),
-                CATEGORIES=Subquery(
-                    Thesaurus.objects.filter(datasets=OuterRef("pk"))
-                    .values("id")
-                    .annotate(ids=GroupConcat("id"))
-                    .values("ids"),
-                    output_field=CharField(),
-                ),
-            )
+        datasets = Datasets_English_Translations.objects.all().annotate(
+            CONTEXT=Concat(
+                "paper_name", Value(": "), "summary", output_field=CharField()
+            ),
+            CATEGORIES=Subquery(
+                Thesaurus.objects.filter(datasets=OuterRef("dataset"))
+                .values("id")
+                .annotate(ids=GroupConcat("id"))
+                .values("ids"),
+                output_field=CharField(),
+            ),
+            RELATED_THESAURI=Subquery(
+                Thesaurus.objects.filter(datasets=OuterRef("dataset"))
+                .values("related_thesauri__id")
+                .annotate(ids=GroupConcat("related_thesauri__id"))
+                .values("ids"),
+                output_field=CharField(),
+            ),
+            PARENT_THESAURUS=Subquery(
+                Thesaurus.objects.filter(datasets=OuterRef("dataset"))
+                .values("parent_thesaurus__id")
+                .annotate(ids=GroupConcat("parent_thesaurus__id"))
+                .values("ids"),
+                output_field=CharField(),
+            ),
         )
         # Make the list of possible results
         label_ids_and_names = Thesaurus.objects.values_list("id", "name")
@@ -125,22 +126,45 @@ class TextClassifier:
         # Fit the MultiLabelBinarizer using the IDs only
         self.mlb.fit([label_ids])
 
-        # Convert Datasets objects to a pandas DataFrame and shuffle the data
-        df = pd.DataFrame.from_records(datasets.values("CATEGORIES", "CONTEXT"))
-        df = df.sample(frac=1).reset_index(drop=True)
-        labels = df["CATEGORIES"].apply(
-            lambda x: [int(label_id) for label_id in x.split(",") if label_id]
+        df = pd.DataFrame.from_records(
+            datasets.values(
+                "CATEGORIES", "CONTEXT", "RELATED_THESAURI", "PARENT_THESAURUS"
+            )
         )
+        df = df.sample(frac=1).reset_index(drop=True)
+
+        # Combine the categories, related thesauri, and parent thesaurus into a single column
+        df["LABELS"] = df.apply(
+            lambda row: list(
+                set(
+                    (row["CATEGORIES"].split(",") if row["CATEGORIES"] else [])
+                    + (
+                        row["RELATED_THESAURI"].split(",")
+                        if row["RELATED_THESAURI"]
+                        else []
+                    )
+                    + (
+                        row["PARENT_THESAURUS"].split(",")
+                        if row["PARENT_THESAURUS"]
+                        else []
+                    )
+                )
+            ),
+            axis=1,
+        )
+        # Convert the label IDs to integers
+        labels = df["LABELS"].apply(
+            lambda labels: [int(label_id) for label_id in labels if label_id]
+        )
+
+        # Drop the individual category, related thesauri, and parent thesaurus columns
+        df.drop(
+            ["CATEGORIES", "RELATED_THESAURI", "PARENT_THESAURUS"], axis=1, inplace=True
+        )
+
         binary_labels = pd.DataFrame(
             self.mlb.transform(labels),
             columns=[label_name for _, label_name in label_ids_and_names],
-        )
-        df.drop(
-            labels=[
-                "CATEGORIES",
-            ],
-            axis=1,
-            inplace=True,
         )
         df = pd.concat([df, binary_labels], axis=1)
 
@@ -177,10 +201,10 @@ class TextClassifier:
             valid_loss = 0
 
             self.model.train()
-            print(
-                "############# Epoch {}: Training Start   #############".format(epoch)
-            )
-            for batch_idx, data in enumerate(training_loader):
+
+            print("Training {}".format(epoch))
+
+            for batch_idx, data in enumerate(training_loader, 0):
                 # print('yyy epoch', batch_idx)
                 ids = data["input_ids"].to(self.device, dtype=torch.long)
                 mask = data["attention_mask"].to(self.device, dtype=torch.long)
@@ -205,16 +229,10 @@ class TextClassifier:
                 )
                 # print('after loss data in training', loss.item(), train_loss)
 
-            print(
-                "############# Epoch {}: Training End     #############".format(epoch)
-            )
-
-            print(
-                "############# Epoch {}: Validation Start   #############".format(epoch)
-            )
             ######################
             # validate the model #
             ######################
+            print("Validation {}".format(epoch))
 
             self.model.eval()
 
@@ -237,16 +255,13 @@ class TextClassifier:
                         torch.sigmoid(outputs).cpu().detach().numpy().tolist()
                     )
 
-            print(
-                "############# Epoch {}: Validation End     #############".format(epoch)
-            )
             # calculate average losses
             # print('before cal avg train loss', train_loss)
             train_loss = train_loss / len(training_loader)
             valid_loss = valid_loss / len(validation_loader)
             # print training/validation statistics
             print(
-                "Epoch: {} \tAvgerage Training Loss: {:.6f} \tAverage Validation Loss: {:.6f}".format(
+                "Epoch: {} \tAverage Training Loss: {:.6f} \tAverage Validation Loss: {:.6f}".format(
                     epoch, train_loss, valid_loss
                 )
             )
