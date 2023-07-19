@@ -13,7 +13,6 @@ class ThesaurusScraper:
         self.timeout = 15
 
     def scrape(self):
-        """
         # Loop through the alphabet and get the results for each letter
         for letter in tqdm(self.alphabet, desc="Processing letters"):
             self.get_results(letter)
@@ -21,8 +20,7 @@ class ThesaurusScraper:
         # Loop through the vowels with accents and get the results for each vowel
         for vowel in tqdm(self.vowels_with_accents, desc="Processing vowels"):
             self.get_results(urllib.parse.quote(vowel))
-        """
-        
+
         results_2_detail = Thesaurus.objects.exclude(translations__isnull=False)
         for result in tqdm(results_2_detail, desc="Getting details"):
             self.get_details(result)
@@ -130,7 +128,9 @@ class ThesaurusScraper:
                 try:
                     Translations.objects.get(language=language, name=name)
                 except Translations.DoesNotExist:
-                    Translations.objects.create(language=language, name=name, thesaurus=result)
+                    Translations.objects.create(
+                        language=language, name=name, thesaurus=result
+                    )
 
 
 def start_scraping():

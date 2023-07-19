@@ -83,20 +83,20 @@ class DatasetsScraper:
                         except KeyError:
                             continue
 
-                        # Verificar si el documento tiene al menos un thesaurus asociado a su subject
+                        # Check if the document has at least one thesaurus associated with its subject
                         if not categories:
                             continue
 
                         dataset_categories = []
                         for category in categories:
-                            # Filtrar los thesaurus que cumplan con el criterio de búsqueda similar
+                            # Filter thesauri that meet the criteria for a similar search
                             thesaurus = Thesaurus.objects.filter(
                                 name__icontains=category
                             ).first()
                             if thesaurus:
                                 dataset_categories.append(thesaurus)
 
-                        # Verificar si el dataset tiene al menos un thesaurus asociado antes de crearlo
+                        # Check if the dataset has at least one associated thesaurus before creating it.
                         if not dataset_categories:
                             continue
                         dataset = Datasets.objects.filter(paper_name=title).first()
@@ -110,10 +110,10 @@ class DatasetsScraper:
                         elif len(description) > len(dataset.summary):
                             dataset.summary = description
                             dataset.save()
-                        # Recupera las categorías existentes del dataset
+                        # Retrieve the existing categories of the dataset.
                         existing_categories = dataset.categories.all()
                         for category_obj in dataset_categories:
-                            # Agrega la nueva categoría al conjunto existente
+                            # Add the new category to the existing set.
                             if category_obj not in existing_categories:
                                 dataset.categories.add(category_obj)
 

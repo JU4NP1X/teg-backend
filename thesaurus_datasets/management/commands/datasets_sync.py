@@ -22,29 +22,34 @@ class Command(BaseCommand):
 
         chunk_size = 100
 
-        thesaurus_objects = Thesaurus.objects.filter(
-            searched_for_datasets=False
-        ).annotate(num_datasets=Count('datasets')).order_by('num_datasets', 'id')[:500].iterator()
+        # Retrieve the thesaurus objects that have not been searched for datasets
+        thesaurus_objects = (
+            Thesaurus.objects.filter(searched_for_datasets=False)
+            .annotate(num_datasets=Count("datasets"))
+            .order_by("num_datasets", "id")[:500]
+            .iterator()
+        )
         while True:
             chunk = list(islice(thesaurus_objects, chunk_size))
             if not chunk:
-                # Todos los objetos han sido buscados, establece searched_for_datasets en False y vuelve a obtenerlos
-                Thesaurus.objects.update(
-                    searched_for_datasets=False
+                # All objects have been searched, set searched_for_datasets to False and retrieve them again
+                Thesaurus.objects.update(searched_for_datasets=False)
+                thesaurus_objects = (
+                    Thesaurus.objects.filter(searched_for_datasets=False)
+                    .annotate(num_datasets=Count("datasets"))
+                    .order_by("num_datasets", "id")[:500]
+                    .iterator()
                 )
-                thesaurus_objects = Thesaurus.objects.filter(
-                    searched_for_datasets=False
-                ).annotate(num_datasets=Count('datasets')).order_by('num_datasets', 'id')[:500].iterator()
-                # Verifica si hay objetos sin buscar de nuevo
+                # Check if there are objects left to search again
                 if not thesaurus_objects:
                     break
 
-            # Itera sobre los objetos y haz print del nombre de cada uno
+            # Iterate over the objects and print the name of each one
             for thesaurus_object in tqdm(chunk, desc="Scraping thesaurus objects"):
                 scraper = DatasetsScraper(thesaurus_object.name, universities)
                 scraper.scrape()
 
-                # Establece el valor de searched_for_datasets a True
+                # Set the value of searched_for_datasets to True
                 thesaurus_object.searched_for_datasets = True
                 thesaurus_object.save()
 

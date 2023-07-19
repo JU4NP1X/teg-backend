@@ -17,6 +17,5 @@ class Command(BaseCommand):
             if not chunk:
                 break
 
-            # Itera sobre los objetos y haz print del nombre de cada uno
             for thesaurus_object in tqdm(chunk, desc="Scraping thesaurus objects"):
                 scraper.scrape(thesaurus_object.name)

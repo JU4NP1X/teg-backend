@@ -330,6 +330,7 @@ class TextClassifier:
         valid_loss_min = checkpoint["valid_loss_min"]
         # Return model, optimizer, epoch value, min validation loss
         return checkpoint["epoch"], valid_loss_min
+
     def save_ckp(self, state, is_best):
         pass
 
