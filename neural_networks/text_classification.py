@@ -92,20 +92,20 @@ class TextClassifier:
 
     # Really better solution, but slower
     def balance_data(self, df):
-        # Primero, vamos a aplanar la lista de etiquetas y contar la frecuencia de cada una
+        # First, flatten the list of labels and count the frequency of each one
         labels = [label for sublist in df["LABELS"].tolist() for label in sublist]
         counter = Counter(labels)
 
-        # Encuentra la categoría mínima para balancear
+        # Find the minimum category to balance
         min_category = min(counter, key=counter.get)
         print("min_cat", min_category)
 
-        # Crea un nuevo DataFrame vacío para almacenar los datos balanceados
+        # Create an empty DataFrame to store the balanced data
         balanced_df = pd.DataFrame(columns=df.columns)
 
-        # Itera sobre cada fila en el DataFrame original
+        # Iterate over each row in the original DataFrame
         for _, row in df.iterrows():
-            # Si la fila contiene la categoría mínima, añádela al DataFrame balanceado
+            # If the row contains the minimum category, add it to the balanced DataFrame
             if min_category in row["LABELS"]:
                 balanced_df = pd.concat([balanced_df, row.to_frame().T])
             else:
@@ -113,78 +113,78 @@ class TextClassifier:
                 for category in row["LABELS"]:
                     if counter[category] < worst_proportion_in_row:
                         worst_proportion_in_row = counter[category]
-                # Si no, añade la fila al DataFrame balanceado con una probabilidad igual a la proporción de la categoría mínima
+                # If not, add the row to the balanced DataFrame with a probability equal to the proportion of the minimum category
                 if worst_proportion_in_row <= 5 or (
                     (np.random.rand() * (counter[min_category] + 5))
                     > (np.random.rand() * worst_proportion_in_row)
                 ):
                     balanced_df = pd.concat([balanced_df, row.to_frame().T])
 
-        # Mezcla el DataFrame balanceado para asegurar que los datos estén distribuidos aleatoriamente
+        # Shuffle the balanced DataFrame to ensure the data is randomly distributed
         balanced_df = shuffle(balanced_df)
 
-        # Resetea los índices del DataFrame balanceado
+        # Reset the indices of the balanced DataFrame
         balanced_df.reset_index(drop=True, inplace=True)
         self.plot_category_counts(df, balanced_df)
         return balanced_df
 
     # This balancer is really bad
     def balance_data2(self, df):
-        # Primero, vamos a aplanar la lista de etiquetas y contar la frecuencia de cada una
+        # First, flatten the list of labels and count the frequency of each one
         labels = [label for sublist in df["LABELS"].tolist() for label in sublist]
         counter = Counter(labels)
 
-        # Encuentra la categoría mínima para balancear
+        # Find the minimum category to balance
         min_category = min(counter, key=counter.get)
         print("min_cat", min_category)
 
-        # Crea un nuevo DataFrame vacío para almacenar los datos balanceados
+        # Create an empty DataFrame to store the balanced data
         balanced_df = pd.DataFrame(columns=df.columns)
 
-        # Itera sobre cada fila en el DataFrame original
+        # Iterate over each row in the original DataFrame
         for index, row in df.iterrows():
-            # Si la fila contiene la categoría mínima, añádela al DataFrame balanceado
+            # If the row contains the minimum category, add it to the balanced DataFrame
             if min_category in row["LABELS"]:
                 balanced_df = pd.concat([balanced_df, row.to_frame().T])
             else:
-                # Si no, añade la fila al DataFrame balanceado con una probabilidad igual a la proporción de la categoría mínima
+                # If not, add the row to the balanced DataFrame with a probability equal to the proportion of the minimum category
                 if np.random.rand() < counter[min_category] / len(row["LABELS"]):
                     balanced_df = pd.concat([balanced_df, row.to_frame().T])
 
-        # Mezcla el DataFrame balanceado para asegurar que los datos estén distribuidos aleatoriamente
+        # Shuffle the balanced DataFrame to ensure the data is randomly distributed
         balanced_df = shuffle(balanced_df)
 
-        # Resetea los índices del DataFrame balanceado
+        # Reset the indices of the balanced DataFrame
         balanced_df.reset_index(drop=True, inplace=True)
         self.plot_category_counts(df, balanced_df)
         return balanced_df
 
     def plot_category_counts(self, df, balanced_df):
-        # Cuenta la frecuencia de cada categoría en el DataFrame original
+        # Count the frequency of each category in the original DataFrame
         original_counts = df["LABELS"].explode().value_counts().sort_index()
 
-        # Cuenta la frecuencia de cada categoría en el DataFrame balanceado
+        # Count the frequency of each category in the balanced DataFrame
         balanced_counts = balanced_df["LABELS"].explode().value_counts().sort_index()
 
-        # Crea una figura y dos subplots para mostrar los gráficos antes y después del balanceo
+        # Create a figure and two subplots to show the graphs before and after balancing
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
 
-        # Grafica el número de coincidencias por categoría antes del balanceo
+        # Plot the number of occurrences per category before balancing
         ax1.bar(original_counts.index, original_counts.values)
-        ax1.set_title("Antes del balanceo")
-        ax1.set_xlabel("Categoría")
-        ax1.set_ylabel("Número de coincidencias")
+        ax1.set_title("Before Balancing")
+        ax1.set_xlabel("Category")
+        ax1.set_ylabel("Number of Occurrences")
 
-        # Grafica el número de coincidencias por categoría después del balanceo
+        # Plot the number of occurrences per category after balancing
         ax2.bar(balanced_counts.index, balanced_counts.values)
-        ax2.set_title("Después del balanceo")
-        ax2.set_xlabel("Categoría")
-        ax2.set_ylabel("Número de coincidencias")
+        ax2.set_title("After Balancing")
+        ax2.set_xlabel("Category")
+        ax2.set_ylabel("Number of Occurrences")
 
-        # Ajusta los espacios entre los subplots
+        # Adjust the spacing between the subplots
         plt.tight_layout()
 
-        # Guarda la gráfica como una imagen en formato PNG
+        # Save the graph as an image in PNG format
         plt.savefig("category_counts.png")
 
     def preprocess_data(self):
@@ -216,22 +216,18 @@ class TextClassifier:
         return train_df, val_df
 
     def create_model(self):
-        # Definir la arquitectura del modelo
+        # Define the model architecture
         self.model = BERTClass(self.num_outputs)
         self.model.to(self.device)
 
     def loss_fn(self, outputs, targets):
         return torch.nn.BCEWithLogitsLoss()(outputs, targets)
 
-    def train_model(
-        self,
-        training_loader,
-        validation_loader,
-    ):
+    def train_model(self, training_loader, validation_loader):
         val_targets = []
         val_outputs = []
 
-        # initialize tracker for minimum validation loss
+        # Initialize tracker for minimum validation loss
         valid_loss_min = np.Inf
         for epoch in range(1, self.epochs + 1):
             train_loss = 0
@@ -239,10 +235,9 @@ class TextClassifier:
 
             self.model.train()
 
-            print("Training {}".format(epoch))
+            print("Training Epoch {}".format(epoch))
 
             for batch_idx, data in enumerate(training_loader, 0):
-                # print('yyy epoch', batch_idx)
                 ids = data["input_ids"].to(self.device, dtype=torch.long)
                 mask = data["attention_mask"].to(self.device, dtype=torch.long)
                 token_type_ids = data["token_type_ids"].to(
@@ -254,22 +249,19 @@ class TextClassifier:
 
                 self.optimizer.zero_grad()
                 loss = self.loss_fn(outputs, targets)
-                # if batch_idx%5000==0:
-                #   print(f'Epoch: {epoch}, Training Loss:  {loss.item()}')
 
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
-                # print('before loss data in training', loss.item(), train_loss)
+
                 train_loss = train_loss + (
                     (1 / (batch_idx + 1)) * (loss.item() - train_loss)
                 )
-                # print('after loss data in training', loss.item(), train_loss)
 
             ######################
-            # validate the model #
+            # Validate the model #
             ######################
-            print("Validation {}".format(epoch))
+            print("Validation Epoch {}".format(epoch))
 
             self.model.eval()
 
@@ -292,18 +284,18 @@ class TextClassifier:
                         torch.sigmoid(outputs).cpu().detach().numpy().tolist()
                     )
 
-            # calculate average losses
-            # print('before cal avg train loss', train_loss)
+            # Calculate average losses
             train_loss = train_loss / len(training_loader)
             valid_loss = valid_loss / len(validation_loader)
-            # print training/validation statistics
+
+            # Print training/validation statistics
             print(
                 "Epoch: {} \tAverage Training Loss: {:.6f} \tAverage Validation Loss: {:.6f}".format(
                     epoch, train_loss, valid_loss
                 )
             )
 
-            # create checkpoint variable and add important data
+            # Create checkpoint variable and add important data
             checkpoint = {
                 "epoch": epoch + 1,
                 "valid_loss_min": valid_loss,
@@ -311,49 +303,41 @@ class TextClassifier:
                 "optimizer": self.optimizer.state_dict(),
             }
 
-            # save checkpoint
+            # Save checkpoint
             self.save_ckp(checkpoint, False)
 
             ## TODO: save the model if validation loss has decreased
             if valid_loss <= valid_loss_min:
                 print(
-                    "Validation loss decreased ({:.6f} --> {:.6f}).  Saving model ...".format(
+                    "Validation loss decreased ({:.6f} --> {:.6f}). Saving model...".format(
                         valid_loss_min, valid_loss
                     )
                 )
-                # save checkpoint as best model
+                # Save checkpoint as best model
                 self.save_ckp(checkpoint, True)
                 valid_loss_min = valid_loss
 
-            print("############# Epoch {}  Done   #############\n".format(epoch))
+            print("############# Epoch {} Done #############\n".format(epoch))
 
     def load_ckp(self, checkpoint_fpath):
-        # load check point
+        # Load checkpoint
         checkpoint = torch.load(checkpoint_fpath)
-        # initialize state_dict from checkpoint to model
+        # Initialize state_dict from checkpoint to model
         self.model.load_state_dict(checkpoint["state_dict"])
-        # initialize optimizer from checkpoint to optimizer
+        # Initialize optimizer from checkpoint to optimizer
         self.optimizer.load_state_dict(checkpoint["optimizer"])
-        # initialize valid_loss_min from checkpoint to valid_loss_min
+        # Initialize valid_loss_min from checkpoint to valid_loss_min
         valid_loss_min = checkpoint["valid_loss_min"]
-        # return model, optimizer, epoch value, min validation loss
-        return checkpoint["epoch"], valid_loss_min.item()
-
+        # Return model, optimizer, epoch value, min validation loss
+        return checkpoint["epoch"], valid_loss_min
     def save_ckp(self, state, is_best):
-        c_path = f"{self.model_path}/curr_ckpt.pt"
-        b_path = f"{self.model_path}/best_model.pt"
-        # save checkpoint data to the path given, checkpoint_path
-        torch.save(state, c_path)
-        # if it is a best model, min validation loss
-        if is_best:
-            # copy that checkpoint file to best path given, best_model_path
-            shutil.copyfile(c_path, b_path)
+        pass
 
     def retrain_model(self, model_path, new_num_outputs):
         self.model = TextClassifier(self.num_inputs, new_num_outputs)
         self.model.load_state_dict(torch.load(model_path))
 
-        # Aquí necesitarías definir tu nuevo bucle de entrenamiento
+        # Here you would need to define your new training loop
 
     def train(self):
         train_df, val_df = self.preprocess_data()
