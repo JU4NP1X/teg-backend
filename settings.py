@@ -34,7 +34,8 @@ INSTALLED_APPS = [
     "requests",
     # Services
     "thesaurus",
-    "datasets",
+    "thesaurus_datasets",
+    "neural_networks"
 ]
 
 
