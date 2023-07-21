@@ -5,10 +5,10 @@ from django.db.models import Func
 import numpy as np
 from sklearn.preprocessing import MultiLabelBinarizer
 from transformers import BertTokenizer, BertModel
-import shutil
 from collections import Counter
 from sklearn.utils import shuffle
 import matplotlib.pyplot as plt
+from imblearn.over_sampling import SMOTE
 
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
@@ -110,12 +110,20 @@ class TextClassifier:
                 balanced_df = pd.concat([balanced_df, row.to_frame().T])
             else:
                 worst_proportion_in_row = float("inf")
+                tolerance = 10
                 for category in row["LABELS"]:
-                    if counter[category] < worst_proportion_in_row:
-                        worst_proportion_in_row = counter[category]
+                    category_count = counter[category]
+                    close_to_mode = False
+
+                    if category_count < worst_proportion_in_row:
+                        worst_proportion_in_row = category_count
+                    if category_count > 500:
+                        tolerance = 1 / category_count
+                        close_to_mode = True
+
                 # If not, add the row to the balanced DataFrame with a probability equal to the proportion of the minimum category
-                if worst_proportion_in_row <= 5 or (
-                    (np.random.rand() * (counter[min_category] + 5))
+                if (worst_proportion_in_row <= tolerance and not close_to_mode) or (
+                    (np.random.rand() * (counter[min_category] + tolerance))
                     > (np.random.rand() * worst_proportion_in_row)
                 ):
                     balanced_df = pd.concat([balanced_df, row.to_frame().T])
@@ -128,9 +136,8 @@ class TextClassifier:
         self.plot_category_counts(df, balanced_df)
         return balanced_df
 
-    # This balancer is really bad
     def balance_data2(self, df):
-        # First, flatten the list of labels and count the frequency of each one
+        # Flatten the list of labels and count the frequency of each one
         labels = [label for sublist in df["LABELS"].tolist() for label in sublist]
         counter = Counter(labels)
 
@@ -138,25 +145,23 @@ class TextClassifier:
         min_category = min(counter, key=counter.get)
         print("min_cat", min_category)
 
-        # Create an empty DataFrame to store the balanced data
-        balanced_df = pd.DataFrame(columns=df.columns)
+        # Separate the rows of the minority class
+        minority_rows = df[df["LABELS"].apply(lambda x: min_category in x)]
 
-        # Iterate over each row in the original DataFrame
-        for index, row in df.iterrows():
-            # If the row contains the minimum category, add it to the balanced DataFrame
-            if min_category in row["LABELS"]:
-                balanced_df = pd.concat([balanced_df, row.to_frame().T])
-            else:
-                # If not, add the row to the balanced DataFrame with a probability equal to the proportion of the minimum category
-                if np.random.rand() < counter[min_category] / len(row["LABELS"]):
-                    balanced_df = pd.concat([balanced_df, row.to_frame().T])
+        # Calculate the maximum count of any class
+        max_count = max(counter.values())
+
+        # Generate additional copies of the minority rows to match the count of the majority class
+        minority_rows = minority_rows.sample(n=max_count, replace=True)
+
+        # Combine the minority rows with the majority rows
+        balanced_df = pd.concat([df, minority_rows])
 
         # Shuffle the balanced DataFrame to ensure the data is randomly distributed
-        balanced_df = shuffle(balanced_df)
+        balanced_df = balanced_df.sample(frac=1).reset_index(drop=True)
 
-        # Reset the indices of the balanced DataFrame
-        balanced_df.reset_index(drop=True, inplace=True)
         self.plot_category_counts(df, balanced_df)
+
         return balanced_df
 
     def plot_category_counts(self, df, balanced_df):
@@ -194,22 +199,21 @@ class TextClassifier:
 
         # Extract only the IDs
         label_ids = [label_id for label_id, _ in label_ids_and_names]
+        self.num_outputs = len(label_ids)
         # Fit the MultiLabelBinarizer using the IDs only
         self.mlb.fit([label_ids])
-
         df = self.balance_data(df)
 
         binary_labels = pd.DataFrame(
             self.mlb.transform(df["LABELS"]),
             columns=[label_name for _, label_name in label_ids_and_names],
         )
+        self.outputs = binary_labels.columns.values.tolist()
         df = pd.concat([df, binary_labels], axis=1)
 
         # Split the data into training, validation, and test sets
         train_df = df.sample(frac=0.8, random_state=200).reset_index(drop=True)
         val_df = df.drop(train_df.index).reset_index(drop=True)
-        self.outputs = binary_labels.columns.values.tolist()
-        self.num_outputs = len(label_ids)
         print(len(df))
         print(train_df.head(), len(df))
         print(val_df.head())

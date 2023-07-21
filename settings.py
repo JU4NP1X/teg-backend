@@ -32,9 +32,9 @@ INSTALLED_APPS = [
     "rest_framework",
     "django_crontab",
     "requests",
+    "datasets",
     # Services
-    "thesaurus",
-    "thesaurus_datasets",
+    "categories",
     "neural_networks"
 ]
 
@@ -131,4 +131,4 @@ STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-CRONJOBS = [("0 0 * * 6", "thesaurus.sync.start_scraping")]
+CRONJOBS = [("0 0 * * 6", "categories.sync.start_scraping")]
