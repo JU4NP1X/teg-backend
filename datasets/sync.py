@@ -10,9 +10,8 @@ from django.db.models import Q
 
 
 class DatasetsScraper:
-    def __init__(self, query, universities):
-        self.query = query
-        print(self.query)
+    def __init__(self, category, universities):
+        self.category = category
         self.universities = universities
         self.timeout = 40
         self.session = requests.Session()
@@ -53,7 +52,7 @@ class DatasetsScraper:
                         "newspapersSearch": "false",
                         "offset": start,
                         "pcAvailability": "false",
-                        "q": "sub,exact,{}".format(self.query),
+                        "q": "sub,exact,{}".format(self.category.name),
                         "qExclude": "",
                         "qInclude": "",
                         "rapido": "false",
@@ -77,8 +76,8 @@ class DatasetsScraper:
 
                     for doc in data["docs"]:
                         try:
-                            title = doc["pnx"]["display"]["title"][0]
-                            description = doc["pnx"]["addata"]["abstract"][0]
+                            title = doc["pnx"]["display"]["title"][0].strip()
+                            description = doc["pnx"]["addata"]["abstract"][0].strip()
                             categories = []
                             for category in doc["pnx"]["display"]["subject"]:
                                 categories.extend(category.split(";"))
@@ -109,31 +108,29 @@ class DatasetsScraper:
                         if not dataset_categories:
                             continue
 
-                        if self.query.lower() in description.lower():
-                            categories = Categories.objects.filter(
-                                name=self.query
-                            ).first()
-                            if categories:
-                                dataset_categories.append(categories)
+                        if self.category.name.lower() in description.lower():
+                            dataset_categories.append(self.category)
 
                         dataset_categories = list(set(dataset_categories))
                         dataset = Datasets.objects.filter(paper_name=title).first()
 
-                        if not dataset:
+                        if not dataset and len(title) <= 250 and len(description) > 1:
                             dataset = Datasets.objects.create(
                                 paper_name=title,
                                 summary=description,
                                 university=self.current_university,
                             )
-                        elif len(description) > len(dataset.summary):
+                        elif dataset and len(description) > len(dataset.summary):
                             dataset.summary = description
                             dataset.save()
-                        # Retrieve the existing categories of the dataset.
-                        existing_categories = dataset.categories.all()
-                        for category_obj in dataset_categories:
-                            # Add the new category to the existing set.
-                            if category_obj not in existing_categories:
-                                dataset.categories.add(category_obj)
+                            
+                        if dataset:
+                            # Retrieve the existing categories of the dataset.
+                            existing_categories = dataset.categories.all()
+                            for category_obj in dataset_categories:
+                                # Add the new category to the existing set.
+                                if category_obj not in existing_categories:
+                                    dataset.categories.add(category_obj)
 
                     start += 50
                 except Exception as e:

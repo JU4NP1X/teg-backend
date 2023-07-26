@@ -5,7 +5,6 @@ from .models import Categories, Translations
 import urllib.parse
 
 
-
 class CategoriesScraper:
     def __init__(self):
         self.base_url = "https://vocabularies.unesco.org/browser"
@@ -29,12 +28,11 @@ class CategoriesScraper:
     def get_results(self, letter):
         results = []
         offset = 0
-        url = f"{self.base_url}/categories/en/index/{letter}?offset={offset}&clang=en"
+        url = f"{self.base_url}/thesaurus/en/index/{letter}?offset={offset}&clang=en"
         try:
             response = requests.get(url, timeout=self.timeout)
         except Exception:
             return results
-
         # Loop through the results pages
         while response.status_code == 200:
             soup = BeautifulSoup(response.content, "html.parser")
@@ -53,13 +51,13 @@ class CategoriesScraper:
                     link = a["href"]
                     name = a.text.strip()
                     Categories.objects.update_or_create(
-                        name=name.strip(), defaults={"link": link}
+                        name=name, defaults={"link": link}
                     )
                 replaced = li.find("span")
                 if replaced:
                     name = a.text.strip()
                     Categories.objects.update_or_create(
-                        name=name.strip(), defaults={"deprecated": True}
+                        name=name, defaults={"deprecated": True}
                     )
 
             # Increment the offset and get the next page of results
@@ -117,7 +115,7 @@ class CategoriesScraper:
                     parent, _ = Categories.objects.update_or_create(
                         name=name.strip(), defaults={"link": link}
                     )
-                    result.parent_categorie = parent
+                    result.parent_category = parent
                     result.save()
 
         # Find the translations in other languages

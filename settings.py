@@ -33,9 +33,10 @@ INSTALLED_APPS = [
     "django_crontab",
     "requests",
     "datasets",
+    "django_filters",
     # Services
     "categories",
-    "neural_networks"
+    "neural_networks",
 ]
 
 
@@ -51,6 +52,7 @@ MIDDLEWARE = [
 
 REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
+    "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
     "PAGE_SIZE": 100,
 }
 
@@ -59,7 +61,7 @@ ROOT_URLCONF = "urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": ["/home/juan/projects/teg/backend/templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [

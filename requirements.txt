@@ -18,3 +18,5 @@ transformers
 googletrans==3.1.0a0
 matplotlib
 imbalanced-learn
+django-filter
+deap

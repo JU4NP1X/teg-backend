@@ -4,7 +4,7 @@ from django.db import models
 class Categories(models.Model):
     name = models.CharField(max_length=200, unique=True)
     link = models.CharField(max_length=200)
-    parent_categorie = models.ForeignKey(
+    parent_category = models.ForeignKey(
         "self", on_delete=models.CASCADE, null=True, blank=True
     )
     deprecated = models.BooleanField(default=False)
@@ -14,7 +14,12 @@ class Categories(models.Model):
     def __str__(self):
         return self.name
 
+class Authorities(models.Model):
+    name = models.CharField(max_length=200, unique=True)
 
+    def __str__(self):
+        return self.name
+    
 class Translations(models.Model):
     categories = models.ForeignKey(
         Categories, related_name="translations", on_delete=models.CASCADE

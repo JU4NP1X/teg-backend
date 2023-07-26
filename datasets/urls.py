@@ -1,9 +1,9 @@
 from rest_framework import routers
-from .api import DatasetsViewSet, Datasets_English_TranslationsViewSet
+from .api import Datasets_English_Translations_ViewSet, Datasets_ViewSet
 
 router = routers.DefaultRouter()
 
-router.register('api/datasets', DatasetsViewSet, basename='datasets')
-router.register('api/datasets-english-translations', Datasets_English_TranslationsViewSet, basename='datasets')
+router.register("list", Datasets_ViewSet)
+router.register("translations", Datasets_English_Translations_ViewSet)
 
 urlpatterns = router.urls

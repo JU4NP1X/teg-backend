@@ -8,7 +8,8 @@ from transformers import BertTokenizer, BertModel
 from collections import Counter
 from sklearn.utils import shuffle
 import matplotlib.pyplot as plt
-from imblearn.over_sampling import SMOTE
+import random
+from deap import base, creator, tools, algorithms
 
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
@@ -87,18 +88,19 @@ class TextClassifier:
     def get_data(self):
         pass
 
-    def get_labels(self):
+    def get_categories(self):
         pass
 
     # Really better solution, but slower
     def balance_data(self, df):
-        # First, flatten the list of labels and count the frequency of each one
-        labels = [label for sublist in df["LABELS"].tolist() for label in sublist]
-        counter = Counter(labels)
+        # First, flatten the list of categories and count the frequency of each one
+        categories = [
+            label for sublist in df["CATEGORIES"].tolist() for label in sublist
+        ]
+        counter = Counter(categories)
 
         # Find the minimum category to balance
         min_category = min(counter, key=counter.get)
-        print("min_cat", min_category)
 
         # Create an empty DataFrame to store the balanced data
         balanced_df = pd.DataFrame(columns=df.columns)
@@ -106,12 +108,12 @@ class TextClassifier:
         # Iterate over each row in the original DataFrame
         for _, row in df.iterrows():
             # If the row contains the minimum category, add it to the balanced DataFrame
-            if min_category in row["LABELS"]:
+            if min_category in row["CATEGORIES"]:
                 balanced_df = pd.concat([balanced_df, row.to_frame().T])
             else:
                 worst_proportion_in_row = float("inf")
-                tolerance = 10
-                for category in row["LABELS"]:
+                tolerance = 20
+                for category in row["CATEGORIES"]:
                     category_count = counter[category]
                     close_to_mode = False
 
@@ -133,59 +135,105 @@ class TextClassifier:
 
         # Reset the indices of the balanced DataFrame
         balanced_df.reset_index(drop=True, inplace=True)
-        self.plot_category_counts(df, balanced_df)
         return balanced_df
 
-    def balance_data2(self, df):
-        # Flatten the list of labels and count the frequency of each one
-        labels = [label for sublist in df["LABELS"].tolist() for label in sublist]
-        counter = Counter(labels)
+    def balance_data2(self, df, categories_ids):
 
-        # Find the minimum category to balance
-        min_category = min(counter, key=counter.get)
-        print("min_cat", min_category)
+        # Create the fitness and individual classes
+        creator.create("FitnessMax", base.Fitness, weights=(1.0,))
+        creator.create("Individual", list, fitness=creator.FitnessMax)
 
-        # Separate the rows of the minority class
-        minority_rows = df[df["LABELS"].apply(lambda x: min_category in x)]
+        # Initialize the toolbox
+        toolbox = base.Toolbox()
 
-        # Calculate the maximum count of any class
-        max_count = max(counter.values())
+        # Register the necessary functions
+        toolbox.register("attribute", random.choice, df.index.to_numpy())
+        toolbox.register(
+            "individual",
+            tools.initRepeat,
+            creator.Individual,
+            toolbox.attribute,
+            n=3000,
+        )
+        toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
-        # Generate additional copies of the minority rows to match the count of the majority class
-        minority_rows = minority_rows.sample(n=max_count, replace=True)
+        # Register the genetic operators
+        toolbox.register("mate", tools.cxTwoPoint)
+        toolbox.register(
+            "mutate", tools.mutUniformInt, low=0, up=df.shape[0] - 1, indpb=0.05
+        )
+        toolbox.register("select", tools.selTournament, tournsize=3)
+        toolbox.register("evaluate", lambda ind: fitness_function(ind, df, categories_ids))
 
-        # Combine the minority rows with the majority rows
-        balanced_df = pd.concat([df, minority_rows])
+        # Set the parameters
+        population_size = 50
+        num_generations = 10
+        offspring_size = 5 * population_size  # Increase the number of offspring
 
-        # Shuffle the balanced DataFrame to ensure the data is randomly distributed
-        balanced_df = balanced_df.sample(frac=1).reset_index(drop=True)
+        # Create the initial population
+        population = toolbox.population(n=population_size)
 
-        self.plot_category_counts(df, balanced_df)
+        # Evaluate the fitness of the initial population
+        fitness_values = list(map(toolbox.evaluate, population))
+        for ind, fit in zip(population, fitness_values):
+            ind.fitness.values = (fit,)
 
-        return balanced_df
+        # Perform the evolution
+        for generation in range(num_generations):
+            print("Generation:", generation + 1)
 
-    def plot_category_counts(self, df, balanced_df):
-        # Count the frequency of each category in the original DataFrame
-        original_counts = df["LABELS"].explode().value_counts().sort_index()
+            # Select the next generation individuals
+            offspring = toolbox.select(population, offspring_size)
 
-        # Count the frequency of each category in the balanced DataFrame
-        balanced_counts = balanced_df["LABELS"].explode().value_counts().sort_index()
+            # Clone the selected individuals
+            offspring = list(map(toolbox.clone, offspring))
 
-        # Create a figure and two subplots to show the graphs before and after balancing
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
+            # Apply crossover and mutation on the offspring
+            for child1, child2 in zip(offspring[::2], offspring[1::2]):
+                if random.random() < 0.5:
+                    toolbox.mate(child1, child2)
+                    del child1.fitness.values
+                    del child2.fitness.values
 
-        # Plot the number of occurrences per category before balancing
-        ax1.bar(original_counts.index, original_counts.values)
-        ax1.set_title("Before Balancing")
-        ax1.set_xlabel("Category")
-        ax1.set_ylabel("Number of Occurrences")
+            for mutant in offspring:
+                if random.random() < 0.2:
+                    toolbox.mutate(mutant)
+                    del mutant.fitness.values
 
-        # Plot the number of occurrences per category after balancing
-        ax2.bar(balanced_counts.index, balanced_counts.values)
-        ax2.set_title("After Balancing")
-        ax2.set_xlabel("Category")
-        ax2.set_ylabel("Number of Occurrences")
+            # Evaluate the fitness of the offspring
+            invalid_individuals = [ind for ind in offspring if not ind.fitness.valid]
+            fitness_values = map(toolbox.evaluate, invalid_individuals)
+            for ind, fit in zip(invalid_individuals, fitness_values):
+                ind.fitness.values = (fit,)
 
+            # Replace the population with the offspring
+            population[:] = offspring
+
+            # Print the best fitness value in the current generation
+            best_fitness = np.max([ind.fitness.values[0] for ind in population])
+            print("Best Fitness:", best_fitness)
+
+        # Select the best individual from the final population
+        best_combination = tools.selBest(population, k=1)[0]
+
+        # df a DataFrame to store the balanced data
+        df = df.iloc[best_combination]
+        df = df.reset_index(drop=True)
+        return df
+
+    def plot_category_counts(self, df):
+        # Count the frequency of each category in the DataFrame
+        category_counts = df[self.outputs].sum().sort_index()
+
+        # Create a figure and a subplot to show the graph
+        fig, ax = plt.subplots(figsize=(8, 6))
+
+        # Plot the number of occurrences for each category
+        ax.bar(category_counts.index, category_counts.values)
+        ax.set_title("Category Counts")
+        ax.set_ylabel("Number of Occurrences")
+        # Remove the x-axis labels
+        ax.set_xticklabels([])
         # Adjust the spacing between the subplots
         plt.tight_layout()
 
@@ -195,27 +243,33 @@ class TextClassifier:
     def preprocess_data(self):
         df = self.get_data()
         # Make the list of possible results
-        label_ids_and_names = self.get_labels()
+        label_ids_and_names = self.get_categories()
 
         # Extract only the IDs
         label_ids = [label_id for label_id, _ in label_ids_and_names]
         self.num_outputs = len(label_ids)
         # Fit the MultiLabelBinarizer using the IDs only
         self.mlb.fit([label_ids])
+        
         df = self.balance_data(df)
+        #df = self.balance_data2(df, label_ids)
 
-        binary_labels = pd.DataFrame(
-            self.mlb.transform(df["LABELS"]),
+        binary_categories = pd.DataFrame(
+            self.mlb.transform(df["CATEGORIES"]),
             columns=[label_name for _, label_name in label_ids_and_names],
         )
-        self.outputs = binary_labels.columns.values.tolist()
-        df = pd.concat([df, binary_labels], axis=1)
+        self.outputs = binary_categories.columns.values.tolist()
+        df = pd.concat([df, binary_categories], axis=1)
+        self.plot_category_counts(df)
 
         # Split the data into training, validation, and test sets
         train_df = df.sample(frac=0.8, random_state=200).reset_index(drop=True)
         val_df = df.drop(train_df.index).reset_index(drop=True)
-        print(len(df))
-        print(train_df.head(), len(df))
+
+        std_dev = 1/ fitness_function(df.index.to_numpy(), df, label_ids)
+        print("Data Size: ", len(df))
+        print("Std dev: ", std_dev)
+        print(train_df.head())
         print(val_df.head())
         return train_df, val_df
 
@@ -368,3 +422,20 @@ class TextClassifier:
         )
 
         self.train_model(train_data_loader, val_data_loader)
+
+# Define the fitness function
+def fitness_function(individual, df, categories_ids):
+    # Calculate the total sum of each category in the individual
+    category_sums = [0] * len(categories_ids)
+
+    for dataset_id in individual:
+        dataset_categories_ids = df.loc[dataset_id, "CATEGORIES"]
+        for category_id in dataset_categories_ids:
+            category_index = categories_ids.index(category_id)
+            category_sums[category_index] += 1
+
+    # Calculate the standard deviation of the category sums
+    std_dev = np.std(category_sums)
+
+    # Return the inverse of the standard deviation as the fitness value
+    return 1 / std_dev

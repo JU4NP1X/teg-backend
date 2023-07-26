@@ -14,40 +14,50 @@ class TextClassifier(BaseTextClassifier):
     def __init__(self):
         super().__init__()
         self.model_path = os.environ.get(
-            "THESAURUS_MODEL_PATH", "/home/juan/projects/teg/backend"
+            "CATEGORIES_MODEL_PATH", "/home/juan/projects/teg/backend"
         )
-        self.max_len = int(os.environ.get("THESAURUS_MAX_LEN", 256))
-        self.train_batch_size = int(os.environ.get("THESAURUS_TRAIN_BATCH_SIZE", 3))
-        self.valid_batch_size = int(os.environ.get("THESAURUS_VALID_BATCH_SIZE", 1))
-        self.learning_rate = float(os.environ.get("THESAURUS_LEARNING_RATE", 1e-05))
-        self.epochs = int(os.environ.get("THESAURUS_EPOCHS", 2))
+        self.max_len = int(os.environ.get("CATEGORIES_MAX_LEN", 256))
+        self.train_batch_size = int(os.environ.get("CATEGORIES_TRAIN_BATCH_SIZE", 3))
+        self.valid_batch_size = int(os.environ.get("CATEGORIES_VALID_BATCH_SIZE", 1))
+        self.learning_rate = float(os.environ.get("CATEGORIES_LEARNING_RATE", 1e-05))
+        self.epochs = int(os.environ.get("CATEGORIES_EPOCHS", 2))
 
-    def get_labels(self):
-        return Categories.objects.values_list("id", "name")
+    def get_categories(self):
+        return Categories.objects.filter(deprecated=False).values_list("id", "name")
 
     def get_data(self):
-        datasets = Datasets_English_Translations.objects.all().annotate(
+        datasets = Datasets_English_Translations.objects.filter(
+            dataset__categories__deprecated=False
+        ).annotate(
             CONTEXT=Concat(
                 "paper_name", Value(": "), "summary", output_field=CharField()
             ),
             CATEGORIES=Subquery(
-                Categories.objects.filter(datasets=OuterRef("dataset"))
+                Categories.objects.filter(
+                    datasets=OuterRef("dataset"), deprecated=False
+                )
                 .values("id")
                 .annotate(ids=GroupConcat("id"))
                 .values("ids"),
                 output_field=CharField(),
             ),
-            RELATED_THESAURI=Subquery(
-                Categories.objects.filter(datasets=OuterRef("dataset"))
+            RELATED_CATEGORIES=Subquery(
+                Categories.objects.filter(
+                    datasets=OuterRef("dataset"),
+                    deprecated=False,
+                    related_categories__deprecated=False,
+                )
                 .values("related_categories__id")
                 .annotate(ids=GroupConcat("related_categories__id"))
                 .values("ids"),
                 output_field=CharField(),
             ),
-            PARENT_THESAURUS=Subquery(
-                Categories.objects.filter(datasets=OuterRef("dataset"))
-                .values("parent_categorie__id")
-                .annotate(ids=GroupConcat("parent_categorie__id"))
+            PARENT_CATEGORIES=Subquery(
+                Categories.objects.filter(
+                    datasets=OuterRef("dataset"), deprecated=False
+                )
+                .values("parent_category__id")
+                .annotate(ids=GroupConcat("parent_category__id"))
                 .values("ids"),
                 output_field=CharField(),
             ),
@@ -55,19 +65,19 @@ class TextClassifier(BaseTextClassifier):
 
         df = pd.DataFrame.from_records(
             datasets.values(
-                "CATEGORIES", "CONTEXT", "RELATED_THESAURI", "PARENT_THESAURUS"
+                "CATEGORIES", "CONTEXT", "RELATED_CATEGORIES", "PARENT_CATEGORIES"
             )
         )
         df = df.sample(frac=1).reset_index(drop=True)
 
         # Combine the categories, related thesauri, and parent categories into a single column
-        df["LABELS"] = df.apply(
+        df["CATEGORIES"] = df.apply(
             lambda row: list(
                 set(
                     (row["CATEGORIES"].split(",") if row["CATEGORIES"] else [])
                     + (
-                        row["RELATED_THESAURI"].split(",")
-                        if row["RELATED_THESAURI"]
+                        row["RELATED_CATEGORIES"].split(",")
+                        if row["RELATED_CATEGORIES"]
                         else []
                     )
                 )
@@ -77,9 +87,11 @@ class TextClassifier(BaseTextClassifier):
 
         # Drop the individual category, related thesauri, and parent categories columns
         df.drop(
-            ["CATEGORIES", "RELATED_THESAURI", "PARENT_THESAURUS"], axis=1, inplace=True
+            [ "RELATED_CATEGORIES", "PARENT_CATEGORIES"],
+            axis=1,
+            inplace=True,
         )
-        df["LABELS"] = df["LABELS"].apply(
+        df["CATEGORIES"] = df["CATEGORIES"].apply(
             lambda labels: [int(label_id) for label_id in labels if label_id]
         )
         return df

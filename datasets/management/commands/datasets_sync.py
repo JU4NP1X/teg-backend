@@ -3,7 +3,7 @@ from tqdm import tqdm
 from categories.models import Categories
 from ...models import Datasets_University
 from ...sync import DatasetsScraper
-from django.db.models import Q
+from django.db.models import Count
 
 
 class Command(BaseCommand):
@@ -21,21 +21,22 @@ class Command(BaseCommand):
                 "name", flat=True
             )
 
-        # Retrieve the categories objects that have not been searched for datasets
-        categories_objects = Categories.objects.filter(
-            ~Q(datasets__isnull=False),
-            ~Q(related_categories__datasets__isnull=False)
+        # Retrieve the categories objects that have not been searched for datasets or have less than 10 examples
+        categories = (
+            Categories.objects.filter(deprecated=False, searched_for_datasets= False)
+            .annotate(cuenta=Count("datasets") + Count("related_categories__datasets"))
+            .filter(cuenta__lt=10)
         )
-        # Iterate over the objects and print the name of each one
-        for categories_object in tqdm(
-            categories_objects, desc="Scraping categories objects"
-        ):
-            scraper = DatasetsScraper(categories_object.name, universities)
+
+        categories_progress = tqdm(categories)
+        for categorie in categories_progress:
+            categories_progress.set_description(f"Scraping category '{categorie.name}'")
+            scraper = DatasetsScraper(categorie, universities)
             scraper.scrape()
 
-            # Set the value of searched_for_datasets to True
-            categories_object.searched_for_datasets = True
-            categories_object.save()
+            categorie.save()
+
+        # Close the progress bar
 
         DatasetsScraper.pass_english_text()
         DatasetsScraper.create_missing_translations()
