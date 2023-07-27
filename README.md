@@ -11,7 +11,7 @@ This guide will walk you through the steps to set up and launch your Django back
 1. Clone the repository:
 
    ```shell
-   git clone <repository-url>
+   git clone https://github.com/JU4NP1X/teg-backend
    ```
 
 2. Create a virtual environment and activate it:
