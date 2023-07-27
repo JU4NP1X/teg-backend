@@ -32,11 +32,11 @@ INSTALLED_APPS = [
     "rest_framework",
     "django_crontab",
     "requests",
-    "datasets",
     "django_filters",
     # Services
     "categories",
-    "neural_networks",
+    "datasets",
+    "documents",
 ]
 
 
@@ -51,6 +51,9 @@ MIDDLEWARE = [
 ]
 
 REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
     "PAGE_SIZE": 100,
