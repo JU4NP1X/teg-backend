@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Documents
 import base64
+from django import forms
 
 
 class Documents_Serializer(serializers.ModelSerializer):
@@ -22,3 +23,12 @@ class Documents_Serializer(serializers.ModelSerializer):
         representation["pdf"] = pdf_base64
 
         return representation
+
+
+class Documents_Text_Extractor_Serializer(serializers.Serializer):
+    title = serializers.CharField(
+        max_length=None, style={"placeholder": "Enter the base64 for the title"}
+    )
+    summary = serializers.CharField(
+        max_length=None, style={"placeholder": "Enter the base64 for the summary"}
+    )

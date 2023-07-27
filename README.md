@@ -79,9 +79,9 @@ The server will start running at `http://localhost:8000/`.
 ## API Endpoints
 
 - `/documents/`: GET - List all endpoints related to documents.
-- `/documents/list`: GET, POST - List all documents or create a new document.
+- `/documents/list/`: GET, POST - List all documents or create a new document.
 - `/documents/list/<id>/`: GET, PUT, DELETE - Retrieve, update, or delete a specific document.
-- `/documents/list`: GET, POST - List all documents or create a new document.
+- `/documents/text-extractor/`: POST - Extract the title and summary from two images in base64.
   
   ---
 - `/datasets/`: GET - List all endpoints related to datasets.

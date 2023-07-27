@@ -1,0 +1,28 @@
+.navbar-brand {
+    color: #FFFFFF;
+    font-size: 24px;
+    font-weight: bold;
+    text-decoration: none;
+    padding: 0;
+    display: flex;
+    align-items: center;
+}
+
+.title {
+    margin-left: 10px;
+    margin-bottom: 0;
+}
+
+img {
+    max-width: auto;
+    height: 45px;
+}
+
+input, select {
+    min-height: 33px !important;
+    width: 100% !important;
+}
+input[type=checkbox] {
+    min-width: none !important;
+    width: 33px !important;
+}

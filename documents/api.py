@@ -1,6 +1,6 @@
 from .models import Documents
 from rest_framework import viewsets, permissions
-from .serializers import Documents_Serializer
+from .serializers import Documents_Serializer, Documents_Text_Extractor_Serializer
 import pytesseract
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -20,25 +20,28 @@ class Documents_ViewSet(viewsets.ModelViewSet):
 
 
 class Documents_Text_Extractor_ViewSet(viewsets.ViewSet):
+    def get_view_name(self):
+        return "Document Images Text Extractor"
+    serializer_class = Documents_Text_Extractor_Serializer
     def create(self, request):
         title_base64 = request.data.get("title")
-        resume_base64 = request.data.get("resume")
+        summary_base64 = request.data.get("summary")
         # Decodificar las imágenes base64 a objetos de imagen
         title = Image.open(io.BytesIO(base64.b64decode(title_base64)))
-        resume = Image.open(io.BytesIO(base64.b64decode(resume_base64)))
+        summary = Image.open(io.BytesIO(base64.b64decode(summary_base64)))
 
         # Realizar el análisis OCR en las imágenes utilizando Tesseract OCR
         title_text = " ".join(
-            pytesseract.image_to_string(title).split(), config=custom_config
+            pytesseract.image_to_string(title, config=custom_config).split()
         )
-        resume_text = " ".join(
-            pytesseract.image_to_string(resume).split(), config=custom_config
+        summary_text = " ".join(
+            pytesseract.image_to_string(summary, config=custom_config).split()
         )
 
         # Ejemplo de respuesta
         response_data = {
             "title": title_text,
-            "resume": resume_text,
+            "summary": summary_text,
         }
 
         return Response(response_data)

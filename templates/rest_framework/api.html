@@ -1,0 +1,17 @@
+{% extends "rest_framework/base.html" %}
+{% load i18n static %}
+
+{% block branding %}
+    <a class="navbar-brand d-flex" rel="nofollow" href="/">
+        <img src="{% static 'img/uc_logo.png' %}" alt="Descripción de la imagen">
+        <p class="title">{% trans ' Voco UC API' %}</p>
+    </a>
+{% endblock %}
+
+{% block style  %}
+<link rel="stylesheet" type="text/css" href="{% static 'rest_framework/css/bootstrap.min.css' %}">
+<link rel="stylesheet" type="text/css" href="{% static 'rest_framework/css/bootstrap-tweaks.css' %}">
+<link rel="stylesheet" type="text/css" href="{% static 'rest_framework/css/prettify.css' %}">
+<link rel="stylesheet" type="text/css" href="{% static 'rest_framework/css/default.css' %}">
+<link rel="stylesheet" type="text/css" href="{% static 'css/custom.css' %}">
+{% endblock %}
