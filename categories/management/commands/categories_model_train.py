@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand, CommandError
-from categories.neural_network.trainer import TextClassifier
+from categories.neural_network.classification_model import TextClassifier
 
 
 class Command(BaseCommand):

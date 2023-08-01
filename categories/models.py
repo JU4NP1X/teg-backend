@@ -14,6 +14,9 @@ class Categories(models.Model):
     parent_category = models.ForeignKey(
         "self", on_delete=models.CASCADE, null=True, blank=True
     )
+    label_index = models.BigIntegerField(
+        null=True,
+    )
     deprecated = models.BooleanField(default=False)
     related_categories = models.ManyToManyField("self", blank=True)
     searched_for_datasets = models.BooleanField(default=False)

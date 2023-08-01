@@ -6,7 +6,6 @@ tqdm
 beautifulsoup4
 mysqlclient
 python-dotenv
-langchain
 translate
 textblob
 spacy
@@ -21,3 +20,4 @@ imbalanced-learn
 django-filter
 deap
 pytesseract
+pytorch_lightning

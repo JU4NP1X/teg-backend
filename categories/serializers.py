@@ -21,3 +21,8 @@ class Translations_Serializer(serializers.ModelSerializer):
         model = Translations
         fields = "__all__"
         read_only_fields = ("created_at",)
+
+
+class Text_Classification_Serializer(serializers.Serializer):
+    title = serializers.CharField(max_length=200)
+    summary = serializers.CharField(max_length=1500)

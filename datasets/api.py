@@ -13,7 +13,7 @@ class Datasets_ViewSet(viewsets.ModelViewSet):
 
     queryset = Datasets.objects.all()
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    search_fields = ["parper_name"]
+    search_fields = ["paper_name"]
     permission_classes = [
         IsAdminUser
     ]  # Solo permitir acceso a usuarios administradores
@@ -23,7 +23,7 @@ class Datasets_ViewSet(viewsets.ModelViewSet):
 class Datasets_English_Translations_ViewSet(viewsets.ModelViewSet):
     queryset = Datasets_English_Translations.objects.all()
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    search_fields = ["parper_name"]
+    search_fields = ["paper_name"]
     permission_classes = [
         IsAdminUser
     ]  # Solo permitir acceso a usuarios administradores

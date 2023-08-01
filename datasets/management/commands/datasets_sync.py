@@ -11,7 +11,10 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "universities", nargs="*", type=str, help="List of universities"
+            "--universities", nargs="*", type=str, help="List of universities"
+        )
+        parser.add_argument(
+            "--reset", action="store_true", help="Reset searched_for_datasets to False"
         )
 
     def handle(self, *args, **options):
@@ -21,10 +24,12 @@ class Command(BaseCommand):
                 "name", flat=True
             )
 
+        if options["reset"]:
+            Categories.objects.update(searched_for_datasets=False)
         # Retrieve the categories objects that have not been searched for datasets or have less than 10 examples
         categories = (
-            Categories.objects.filter(deprecated=False, searched_for_datasets= False)
-            .annotate(cuenta=Count("datasets") + Count("related_categories__datasets"))
+            Categories.objects.filter(deprecated=False, searched_for_datasets=False)
+            .annotate(cuenta=Count("datasets"))
             .filter(cuenta__lt=10)
         )
 
@@ -33,7 +38,7 @@ class Command(BaseCommand):
             categories_progress.set_description(f"Scraping category '{categorie.name}'")
             scraper = DatasetsScraper(categorie, universities)
             scraper.scrape()
-
+            categorie.searched_for_datasets = True
             categorie.save()
 
         # Close the progress bar
