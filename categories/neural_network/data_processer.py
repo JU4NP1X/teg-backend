@@ -91,7 +91,7 @@ class Data_Processer:
     def preprocess_data(self):
         df = self.get_data()
         # Make the list of possible results
-        self.labels = self.get_categories()
+        self.labels = self.get_categories(False)
 
         # Extract only the IDs
         label_ids = [label_id for label_id, _ in self.labels]
@@ -118,7 +118,7 @@ class Data_Processer:
         ordered_weights = category_weights.iloc[output_indices]
         self.weights = torch.tensor(ordered_weights)
 
-        # Split the data into training, validation, and test sets
+        # Split the data into training and validation sets
         train_df = df.sample(frac=0.8, random_state=200).reset_index(drop=True)
         val_df = df.drop(train_df.index).reset_index(drop=True)
 
@@ -148,7 +148,7 @@ class Data_Processer:
                 balanced_df = pd.concat([balanced_df, row.to_frame().T])
             else:
                 worst_proportion_in_row = float("inf")
-                tolerance = 20
+                tolerance = 40
                 for category in row["CATEGORIES"]:
                     category_count = counter[category]
                     close_to_mode = False

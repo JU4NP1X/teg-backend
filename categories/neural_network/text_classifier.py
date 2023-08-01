@@ -13,7 +13,7 @@ class TextClassifier:
             "CATEGORIES_MODEL_PATH", "/home/juan/projects/teg/backend"
         )
         self.max_len = int(os.environ.get("CATEGORIES_MAX_LEN", 300))
-        self.batch_size = int(os.environ.get("CATEGORIES_TRAIN_BATCH_SIZE", 5))
+        self.batch_size = int(os.environ.get("CATEGORIES_BATCH_SIZE"))
         self.learning_rate = float(os.environ.get("CATEGORIES_LEARNING_RATE", 1.5e-6))
         self.epochs = int(os.environ.get("CATEGORIES_EPOCHS", 2))
 

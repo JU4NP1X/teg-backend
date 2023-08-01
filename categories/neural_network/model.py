@@ -7,8 +7,9 @@ from torchmetrics.functional.classification import auroc
 import torch.nn.functional as F
 from torch.optim import AdamW
 
+
 class Categories_Classifier(pl.LightningModule):
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, checkpoint_path=None):
         super().__init__()
         self.config = config
         self.pretrained_model = AutoModel.from_pretrained(
@@ -24,6 +25,12 @@ class Categories_Classifier(pl.LightningModule):
         torch.nn.init.xavier_uniform_(self.classifier.weight)
         self.loss_func = nn.BCEWithLogitsLoss(reduction="mean")
         self.dropout = nn.Dropout()
+        self.save_hyperparameters()
+
+        if checkpoint_path is not None:
+            checkpoint = f"{checkpoint_path}/version_0/checkpoints/model.ckpt"
+            hparams_file = f"{checkpoint_path}/version_0/hparams.yaml"
+            self.load_from_checkpoint(checkpoint, hparams_file=hparams_file)
 
     def forward(self, input_ids, attention_mask, labels=None):
         # roberta layer
@@ -48,12 +55,12 @@ class Categories_Classifier(pl.LightningModule):
 
     def training_step(self, batch, batch_index):
         loss, outputs = self(**batch)
-        self.log("train loss ", loss, prog_bar=True, logger=True)
+        self.log("train_loss", loss, prog_bar=True, logger=True)
         return {"loss": loss, "predictions": outputs, "labels": batch["labels"]}
 
     def validation_step(self, batch, batch_index):
         loss, outputs = self(**batch)
-        self.log("validation loss ", loss, prog_bar=True, logger=True)
+        self.log("validation_loss", loss, prog_bar=True, logger=True)
         return {"val_loss": loss, "predictions": outputs, "labels": batch["labels"]}
 
     def predict_step(self, batch, batch_index):
@@ -67,7 +74,6 @@ class Categories_Classifier(pl.LightningModule):
             weight_decay=self.config["weight_decay"],
         )
         total_steps = self.config["train_size"] / self.config["batch_size"]
-        warmup_steps = math.floor(total_steps * self.config["warmup"])
         warmup_steps = math.floor(total_steps * self.config["warmup"])
         scheduler = get_cosine_schedule_with_warmup(
             optimizer, warmup_steps, total_steps
