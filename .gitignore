@@ -17,6 +17,9 @@ __pycache__/
 
 # Log files
 logs/
+lightning_logs/
+trained_tokenizer/*
+trained_model/*
 *.log
 category_counts.png
 

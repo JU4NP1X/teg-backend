@@ -60,7 +60,6 @@ class Classifier:
         trainer = pl.Trainer(max_epochs=self.config["n_epochs"], num_sanity_val_steps=1)
 
         trainer.fit(self.model, data_module)
-        self.save_model()
 
     def save_model(self):
         model_path = f"{self.model_path}/trained_model"
