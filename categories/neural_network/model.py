@@ -5,16 +5,58 @@ import torch
 import math
 from torchmetrics.functional.classification import auroc
 import torch.nn.functional as F
+
 from torch.optim import AdamW
+import os
+
+BASE_DIR = os.path.dirname(os.path.realpath(__name__))
+
+
+def create_pretrained_copy(model_path, model_name):
+    if not os.path.exists(model_path):
+        model = AutoModel.from_pretrained(model_name)
+        model.save_pretrained(model_path)
+
+
+class Weighted_Binary_Cross_Entropy_Custom(pl.LightningModule):
+    def __init__(self, pos_weight):
+        super(Weighted_Binary_Cross_Entropy_Custom, self).__init__()
+        self.pos_weight = pos_weight
+
+    def forward(self, input, target, device):
+        # Apply sigmoid to convert logits to probabilities
+        input_probs = torch.sigmoid(input)
+        # Get the list of values that are 1 and 0
+        ones_mask = target.clone().detach().to(torch.bool)
+        zeros_mask = ones_mask.clone() == 0
+
+        # Only is important the mean of the 1 that are correct or not
+        ones_loss = torch.masked_select(
+            torch.ones_like(input_probs) - input_probs, ones_mask
+        )
+
+        # Assign higher weight to cases where expected output is 0 and predicted output is 1
+        zeros_loss = torch.masked_select(input_probs, zeros_mask)
+
+        # Combine the two losses
+        loss = zeros_loss.mean() + ones_loss.mean()
+
+        return loss / 2
 
 
 class Categories_Classifier(pl.LightningModule):
-    def __init__(self, config: dict, checkpoint_path=None):
+    def __init__(self, config: dict, pos_weights, learning_rate=None):
         super().__init__()
+        self.save_hyperparameters(ignore=["pos_weights", "learning_rate"])
+        pos_weights = torch.tensor(pos_weights)
+        if learning_rate:
+            config["lr"] = learning_rate
+        print(config)
         self.config = config
-        self.pretrained_model = AutoModel.from_pretrained(
-            config["model_name"], return_dict=True
-        )
+        model_path = os.path.join(BASE_DIR, config["model_name"])
+
+        create_pretrained_copy(model_path, config["model_name"])
+        self.pretrained_model = AutoModel.from_pretrained(model_path, return_dict=True)
         self.hidden = torch.nn.Linear(
             self.pretrained_model.config.hidden_size,
             self.pretrained_model.config.hidden_size,
@@ -23,33 +65,26 @@ class Categories_Classifier(pl.LightningModule):
             self.pretrained_model.config.hidden_size, self.config["n_labels"]
         )
         torch.nn.init.xavier_uniform_(self.classifier.weight)
-        self.loss_func = nn.BCEWithLogitsLoss(reduction="mean")
+        self.loss_func = Weighted_Binary_Cross_Entropy_Custom(pos_weight=pos_weights)
         self.dropout = nn.Dropout()
-        self.save_hyperparameters()
-
-        if checkpoint_path is not None:
-            checkpoint = f"{checkpoint_path}/version_0/checkpoints/model.ckpt"
-            hparams_file = f"{checkpoint_path}/version_0/hparams.yaml"
-            self.load_from_checkpoint(checkpoint, hparams_file=hparams_file)
 
     def forward(self, input_ids, attention_mask, labels=None):
-        # roberta layer
         output = self.pretrained_model(
             input_ids=input_ids, attention_mask=attention_mask
         )
         pooled_output = torch.mean(output.last_hidden_state, 1)
-        # final logits
         pooled_output = self.dropout(pooled_output)
         pooled_output = self.hidden(pooled_output)
         pooled_output = F.relu(pooled_output)
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
-        # calculate loss
         loss = 0
         if labels is not None:
+            logits = logits.to(labels.device)
             loss = self.loss_func(
                 logits.view(-1, self.config["n_labels"]),
                 labels.view(-1, self.config["n_labels"]),
+                labels.device,
             )
         return loss, logits
 
@@ -63,8 +98,13 @@ class Categories_Classifier(pl.LightningModule):
         self.log("validation_loss", loss, prog_bar=True, logger=True)
         return {"val_loss": loss, "predictions": outputs, "labels": batch["labels"]}
 
-    def predict_step(self, batch, batch_index):
+    def test_step(self, batch, batch_index):
         loss, outputs = self(**batch)
+        self.log("test_loss", loss, prog_bar=True, logger=True)
+        return {"val_loss": loss, "predictions": outputs, "labels": batch["labels"]}
+
+    def predict_step(self, batch, batch_index):
+        _, outputs = self(**batch)
         return outputs
 
     def configure_optimizers(self):
@@ -79,11 +119,3 @@ class Categories_Classifier(pl.LightningModule):
             optimizer, warmup_steps, total_steps
         )
         return [optimizer], [scheduler]
-
-    # def validation_epoch_end(self, outputs):
-    #   losses = []
-    #   for output in outputs:
-    #     loss = output['val_loss'].detach().cpu()
-    #     losses.append(loss)
-    #   avg_loss = torch.mean(torch.stack(losses))
-    #   self.log("avg_val_loss", avg_loss)

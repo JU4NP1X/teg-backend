@@ -1,8 +1,16 @@
 from transformers import AutoTokenizer
 import pytorch_lightning as pl
 from .dataset_constructor import Dataset_Tensor
-
+import os
 from torch.utils.data import DataLoader
+
+BASE_DIR = os.path.dirname(os.path.realpath(__name__))
+
+
+def create_pretrained_copy(tokenizer_path, tokenizer_name):
+    if not os.path.exists(tokenizer_path):
+        model = AutoTokenizer.from_pretrained(tokenizer_name)
+        model.save_pretrained(tokenizer_path)
 
 
 class Data_Module(pl.LightningDataModule):
@@ -21,8 +29,10 @@ class Data_Module(pl.LightningDataModule):
         self.attributes = attributes
         self.batch_size = batch_size
         self.max_length = max_length
-        self.model_name = "roberta-base"
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.tokenizer_name = "roberta-base"
+        tokenizer_path = os.path.join(BASE_DIR, self.tokenizer_name)
+        create_pretrained_copy(tokenizer_path, self.tokenizer_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
 
     def setup(self, stage=None):
         if stage in (None, "fit"):
@@ -38,7 +48,7 @@ class Data_Module(pl.LightningDataModule):
                 max_len=self.max_length,
                 tokenizer=self.tokenizer,
             )
-        if stage == "predict":
+        if stage in ("test", "predict"):
             self.val_dataset = Dataset_Tensor(
                 self.val_data,
                 outputs=self.attributes,
@@ -47,11 +57,9 @@ class Data_Module(pl.LightningDataModule):
             )
 
     def train_dataloader(self):
-        data = DataLoader(
+        return DataLoader(
             self.train_dataset, batch_size=self.batch_size, num_workers=4, shuffle=True
         )
-        print(data)
-        return data
 
     def val_dataloader(self):
         return DataLoader(
@@ -59,6 +67,11 @@ class Data_Module(pl.LightningDataModule):
         )
 
     def predict_dataloader(self):
+        return DataLoader(
+            self.val_dataset, batch_size=self.batch_size, num_workers=4, shuffle=False
+        )
+
+    def test_dataloader(self):
         return DataLoader(
             self.val_dataset, batch_size=self.batch_size, num_workers=4, shuffle=False
         )

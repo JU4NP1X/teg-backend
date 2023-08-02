@@ -10,22 +10,32 @@ import shutil
 import torch
 import pytorch_lightning.loggers as logger
 
+BASE_DIR = os.path.dirname(os.path.realpath(__name__))
+
+
+def create_pretrained_copy(tokenizer_path, tokenizer_name):
+    if not os.path.exists(tokenizer_path):
+        model = AutoTokenizer.from_pretrained(tokenizer_name)
+        model.save_pretrained(tokenizer_path)
+
 
 class Classifier:
     def __init__(self, trained=True):
-        self.model_path = os.environ.get(
-            "CATEGORIES_MODEL_PATH", "/home/juan/projects/teg/backend"
-        )
+        self.best_model_path = os.path.join(BASE_DIR, "trained_model")
         self.max_len = int(os.environ.get("CATEGORIES_MAX_LEN", 300))
         self.n_epochs = int(os.environ.get("CATEGORIES_EPOCHS", 20))
-        if trained:
-            self.model_name = f"{self.model_path}/trained_model"
-            self.tokenizer_name = f"{self.model_path}/trained_tokenizer"
-        else:
-            self.model_name = "distilroberta-base"
-            self.tokenizer_name = "roberta-base"
+        self.learning_rate = float(os.environ.get("CATEGORIES_LEARNING_RATE", 1e-07))
+        self.best_model_checkpoint = f"{self.best_model_path}/model.ckpt"
+        self.model_name = "distilroberta-base"
+        self.tokenizer_name = "roberta-base"
 
-        self.tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name)
+        if trained:
+            self.model_name = self.best_model_checkpoint
+
+        tokenizer_path = os.path.join(BASE_DIR, self.tokenizer_name)
+        create_pretrained_copy(tokenizer_path, self.tokenizer_name)
+
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
         self.df = Data_Processer()
 
         self.categories = self.df.get_categories(trained)
@@ -36,19 +46,16 @@ class Classifier:
             "model_name": self.model_name,
             "n_labels": len(categories_names),
             "batch_size": self.batch_size,
-            "lr": 1.5e-6,
+            "lr": self.learning_rate,
             "warmup": 0.2,
             "weight_decay": 0.001,
             "n_epochs": self.n_epochs,
         }
-        self.model = Categories_Classifier(self.config)
 
-        self.logs_path = os.environ.get(
-            "CATEGOIRES_LOGS_PATH", "/home/juan/projects/teg/backend/lightning_logs"
-        )
+        self.logs_path = os.path.join(BASE_DIR, "lightning_logs")
 
-    def train(self, from_checkpoint=False):
-        train_df, val_df = Data_Processer().preprocess_data()
+    def train(self, checkpoint_path=None, params_path=None):
+        train_df, val_df = self.df.preprocess_data()
         categories_names = [label_name for _, label_name in self.categories]
 
         data_module = Data_Module(
@@ -59,20 +66,19 @@ class Classifier:
             batch_size=self.batch_size,
         )
         data_module.setup()
-
         self.config["train_size"] = len(data_module.train_dataloader())
-        checkpoint_path = None
-        checkpoint = None
-        if from_checkpoint:
-            checkpoint_path = self.logs_path
-            checkpoint = f"{checkpoint_path}/version_0/checkpoints/model.ckpt"
-        self.model = Categories_Classifier(self.config, checkpoint_path=checkpoint_path)
+        if checkpoint_path is not None and params_path is not None:
+            self.model = Categories_Classifier.load_from_checkpoint(
+                checkpoint_path, hparams_file=params_path, pos_weights=self.df.weights, learning_rate=self.learning_rate
+            )
+        else:
+            self.model = Categories_Classifier(self.config, self.df.weights)
+
         checkpoint_callback = ModelCheckpoint(
             save_top_k=1,
             mode="min",
             monitor="validation_loss",
             filename="model",
-            save_weights_only=True,  # Guardar solo los pesos del modelo
         )
 
         trainer = pl.Trainer(
@@ -81,18 +87,24 @@ class Classifier:
             callbacks=[checkpoint_callback],
         )
 
-        logs_dir = trainer.logger.root_dir
-        shutil.rmtree(logs_dir, ignore_errors=True)
-        os.makedirs(logs_dir, exist_ok=True)
-        # Set float32 matrix multiplication precision
-        torch.set_float32_matmul_precision("medium")
-        trainer.fit(self.model, datamodule=data_module, ckpt_path=checkpoint)
+        trainer.fit(self.model, datamodule=data_module, ckpt_path=checkpoint_path)
 
-    def save_model(self):
-        model_path = f"{self.model_path}/trained_model"
-        tokenizer_path = f"{self.model_path}/trained_tokenizer"
-        self.model.pretrained_model.save_pretrained(model_path)
-        self.tokenizer.save_pretrained(tokenizer_path)
+        if not trainer.interrupted:
+            # Save the best model
+            best_checkpoint = checkpoint_callback.best_model_path
+            if best_checkpoint:
+                shutil.copy(best_checkpoint, self.best_model_checkpoint)
+                shutil.copy(
+                    f"{self.logs_path}/version_0/hparams.yaml",
+                    f"{self.best_model_path}/hparams.yaml",
+                )
+
+            # Delete the logs
+            logs_dir = trainer.logger.root_dir
+            shutil.rmtree(logs_dir, ignore_errors=True)
+            os.makedirs(logs_dir, exist_ok=True)
+
+    def save_categories(self):
         Categories.objects.all().update(label_index=None)
         index = 0
         for label_id, _ in self.categories:

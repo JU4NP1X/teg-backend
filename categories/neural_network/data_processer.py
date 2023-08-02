@@ -45,7 +45,9 @@ class Data_Processer:
             ),
             PARENT_CATEGORIES=Subquery(
                 Categories.objects.filter(
-                    datasets=OuterRef("dataset"), deprecated=False
+                    datasets=OuterRef("dataset"),
+                    deprecated=False,
+                    parent_category__deprecated=False,
                 )
                 .values("parent_category__id")
                 .annotate(ids=GroupConcat("parent_category__id"))
@@ -66,7 +68,19 @@ class Data_Processer:
         # Combine the categories, related thesauri, and parent categories into a single column
         df["CATEGORIES"] = df.apply(
             lambda row: list(
-                set((row["CATEGORIES"].split(",") if row["CATEGORIES"] else []))
+                set(
+                    (row["CATEGORIES"].split(",") if row["CATEGORIES"] else [])
+                    + (
+                        row["RELATED_CATEGORIES"].split(",")
+                        if row["RELATED_CATEGORIES"]
+                        else []
+                    )
+                    + (
+                        row["PARENT_CATEGORIES"].split(",")
+                        if row["PARENT_CATEGORIES"]
+                        else []
+                    )
+                )
             ),
             axis=1,
         )
@@ -116,7 +130,7 @@ class Data_Processer:
         pd.set_option("display.float_format", "{:.8f}".format)
         output_indices = category_counts.index.get_indexer(self.outputs)
         ordered_weights = category_weights.iloc[output_indices]
-        self.weights = torch.tensor(ordered_weights)
+        self.weights = ordered_weights
 
         # Split the data into training and validation sets
         train_df = df.sample(frac=0.8, random_state=200).reset_index(drop=True)
@@ -148,19 +162,15 @@ class Data_Processer:
                 balanced_df = pd.concat([balanced_df, row.to_frame().T])
             else:
                 worst_proportion_in_row = float("inf")
-                tolerance = 40
+                tolerance = 200
                 for category in row["CATEGORIES"]:
                     category_count = counter[category]
-                    close_to_mode = False
 
                     if category_count < worst_proportion_in_row:
                         worst_proportion_in_row = category_count
-                    if category_count > 500:
-                        tolerance = 1 / category_count
-                        close_to_mode = True
 
                 # If not, add the row to the balanced DataFrame with a probability equal to the proportion of the minimum category
-                if (worst_proportion_in_row <= tolerance and not close_to_mode) or (
+                if (worst_proportion_in_row <= tolerance) or (
                     (np.random.rand() * (counter[min_category] + tolerance))
                     > (np.random.rand() * worst_proportion_in_row)
                 ):
