@@ -20,6 +20,8 @@ logs/
 lightning_logs/
 trained_tokenizer/*
 trained_model/*
+distilroberta-base/*
+roberta-base/*
 *.log
 category_counts.png
 
