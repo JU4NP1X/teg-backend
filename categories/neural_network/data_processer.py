@@ -18,28 +18,17 @@ class GroupConcat(Func):
 class Data_Processer:
     def __init__(self):
         self.datasets = Datasets_English_Translations.objects.filter(
-            dataset__categories__deprecated=False
+            dataset__categories__deprecated=False,
         ).annotate(
             CONTEXT=Concat(
                 "paper_name", Value(": "), "summary", output_field=CharField()
             ),
             CATEGORIES=Subquery(
                 Categories.objects.filter(
-                    datasets=OuterRef("dataset"), deprecated=False
+                    datasets=OuterRef("dataset"), deprecated=False, parent_category=None
                 )
                 .values("id")
                 .annotate(ids=GroupConcat("id"))
-                .values("ids"),
-                output_field=CharField(),
-            ),
-            RELATED_CATEGORIES=Subquery(
-                Categories.objects.filter(
-                    datasets=OuterRef("dataset"),
-                    deprecated=False,
-                    related_categories__deprecated=False,
-                )
-                .values("related_categories__id")
-                .annotate(ids=GroupConcat("related_categories__id"))
                 .values("ids"),
                 output_field=CharField(),
             ),
@@ -48,8 +37,22 @@ class Data_Processer:
                     datasets=OuterRef("dataset"),
                     deprecated=False,
                     parent_category__deprecated=False,
+                    parent_category__parent_category=None,
                 )
                 .values("parent_category__id")
+                .annotate(ids=GroupConcat("parent_category__id"))
+                .values("ids"),
+                output_field=CharField(),
+            ),
+            GRAND_PARENT_CATEGORIES=Subquery(
+                Categories.objects.filter(
+                    datasets=OuterRef("dataset"),
+                    deprecated=False,
+                    parent_category__deprecated=False,
+                    parent_category__parent_category__deprecated=False,
+                    parent_category__parent_category=None,
+                )
+                .values("parent_category__parent_category__id")
                 .annotate(ids=GroupConcat("parent_category__id"))
                 .values("ids"),
                 output_field=CharField(),
@@ -60,7 +63,7 @@ class Data_Processer:
     def get_data(self):
         df = pd.DataFrame.from_records(
             self.datasets.values(
-                "CATEGORIES", "CONTEXT", "RELATED_CATEGORIES", "PARENT_CATEGORIES"
+                "CATEGORIES", "CONTEXT", "PARENT_CATEGORIES", "GRAND_PARENT_CATEGORIES"
             )
         )
         df = df.sample(frac=1).reset_index(drop=True)
@@ -71,13 +74,13 @@ class Data_Processer:
                 set(
                     (row["CATEGORIES"].split(",") if row["CATEGORIES"] else [])
                     + (
-                        row["RELATED_CATEGORIES"].split(",")
-                        if row["RELATED_CATEGORIES"]
+                        row["PARENT_CATEGORIES"].split(",")
+                        if row["PARENT_CATEGORIES"]
                         else []
                     )
                     + (
-                        row["PARENT_CATEGORIES"].split(",")
-                        if row["PARENT_CATEGORIES"]
+                        row["GRAND_PARENT_CATEGORIES"].split(",")
+                        if row["GRAND_PARENT_CATEGORIES"]
                         else []
                     )
                 )
@@ -87,17 +90,22 @@ class Data_Processer:
 
         # Drop the individual category, related thesauri, and parent categories columns
         df.drop(
-            ["RELATED_CATEGORIES", "PARENT_CATEGORIES"],
+            ["PARENT_CATEGORIES", "GRAND_PARENT_CATEGORIES"],
             axis=1,
             inplace=True,
         )
         df["CATEGORIES"] = df["CATEGORIES"].apply(
             lambda labels: [int(label_id) for label_id in labels if label_id]
         )
+        df = df[df["CATEGORIES"].apply(lambda x: len(x) > 0)]
+
+        print(df.head())
         return df
 
     def get_categories(self, trained=True):
-        self.categories = Categories.objects.filter(deprecated=False)
+        self.categories = Categories.objects.filter(
+            deprecated=False, parent_category=None
+        )
         if trained:
             self.categories = self.categories.exclude(label_index__isnull=True)
         return self.categories.values_list("id", "name")
@@ -162,12 +170,14 @@ class Data_Processer:
                 balanced_df = pd.concat([balanced_df, row.to_frame().T])
             else:
                 worst_proportion_in_row = float("inf")
-                tolerance = 200
+                tolerance = 400
                 for category in row["CATEGORIES"]:
                     category_count = counter[category]
 
                     if category_count < worst_proportion_in_row:
                         worst_proportion_in_row = category_count
+                    if category_count > 500:
+                        tolerance = 100
 
                 # If not, add the row to the balanced DataFrame with a probability equal to the proportion of the minimum category
                 if (worst_proportion_in_row <= tolerance) or (

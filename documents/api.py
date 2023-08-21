@@ -12,23 +12,24 @@ import os
 # Configuración para el idioma español
 custom_config = f"--oem 3 --psm 6 -l {os.getenv('TESSERACT_ALPHA3', 'eng')}"
 
-
 class Documents_ViewSet(viewsets.ModelViewSet):
     queryset = Documents.objects.all()
     permission_classes = [permissions.AllowAny]
     serializer_class = Documents_Serializer
 
-
 class Documents_Text_Extractor_ViewSet(viewsets.ViewSet):
     def get_view_name(self):
         return "Document Images Text Extractor"
+    
     serializer_class = Documents_Text_Extractor_Serializer
+    
     def create(self, request):
         title_base64 = request.data.get("title")
         summary_base64 = request.data.get("summary")
+        
         # Decodificar las imágenes base64 a objetos de imagen
-        title = Image.open(io.BytesIO(base64.b64decode(title_base64)))
-        summary = Image.open(io.BytesIO(base64.b64decode(summary_base64)))
+        title = Image.open(io.BytesIO(base64.b64decode(title_base64.split(",")[1])))
+        summary = Image.open(io.BytesIO(base64.b64decode(summary_base64.split(",")[1])))
 
         # Realizar el análisis OCR en las imágenes utilizando Tesseract OCR
         title_text = " ".join(

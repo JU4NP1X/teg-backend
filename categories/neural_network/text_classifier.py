@@ -17,6 +17,11 @@ def create_pretrained_copy(tokenizer_path, tokenizer_name):
         model = AutoTokenizer.from_pretrained(tokenizer_name)
         model.save_pretrained(tokenizer_path)
 
+def get_descendants(categories):
+    descendants = []
+    for category in categories:
+        descendants.append(category.include_descendants())
+    return descendants
 
 class TextClassifier:
     def __init__(self):
@@ -59,7 +64,6 @@ class TextClassifier:
         input_probs = torch.sigmoid(predictions)
         final_output = input_probs.cpu().numpy()[0]
         close_indexes = np.where(final_output >= 0.5)[0]
-        categories_list = list(
-            Categories.objects.filter(label_index__in=list(close_indexes)).values()
-        )
+        filtered_categories = Categories.objects.filter(label_index__in=list(close_indexes))
+        categories_list = get_descendants(filtered_categories)
         return categories_list

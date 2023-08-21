@@ -41,6 +41,7 @@ class Classifier:
         self.categories = self.df.get_categories(trained)
         categories_names = [label_name for _, label_name in self.categories]
         self.batch_size = int(os.environ.get("CATEGORIES_BATCH_SIZE", 5))
+        print("HOLAAAA", len(categories_names))
 
         self.config = {
             "model_name": self.model_name,

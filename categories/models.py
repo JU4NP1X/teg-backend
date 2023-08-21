@@ -24,6 +24,18 @@ class Categories(models.Model):
 
     def __str__(self):
         return self.name
+    
+    def children(self):
+        return Categories.objects.filter(parent_category=self)
+        
+    def include_descendants(self):
+        descendants = []
+        for child in self.children():
+            descendants.append(child.include_descendants())
+        return {
+            "name": self.name,
+            "children": descendants
+        }
 
 
 class Translations(models.Model):

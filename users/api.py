@@ -1,7 +1,7 @@
 from rest_framework import viewsets 
 from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
-from django.contrib.auth.models import User
+from .models import User
 from django.contrib.auth import authenticate
 from .serializers import Users_Serializer, User_Login_Serializer
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
@@ -20,6 +20,7 @@ class Users_ViewSet(viewsets.ModelViewSet):
 
 class Login_ViewSet(viewsets.ViewSet):
     serializer_class = User_Login_Serializer
+
     def create(self, request):
         username = request.data.get("username")
         password = request.data.get("password")
@@ -30,6 +31,16 @@ class Login_ViewSet(viewsets.ViewSet):
         )
         if user is not None:
             token, created = Token.objects.get_or_create(user=user)
-            return Response({"token": token.key})
+            user_data = {
+                "token": token.key,
+                "id": user.id,
+                "username": user.username,
+                "firstName": user.first_name,
+                "lastName": user.last_name,
+                "email": user.email,
+                "isAdmin": user.is_staff
+                # Agrega cualquier otra información que desees devolver
+            }
+            return Response(user_data)
         else:
             return Response({"error": "Invalid credentials"}, status=400)
