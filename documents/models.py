@@ -1,10 +1,24 @@
-from django.db import models
-from users.models import User
-from django.core.files.base import ContentFile
 import base64
+from django.db import models
+from django.core.files.base import ContentFile
+from users.models import User
 
 
 class Documents(models.Model):
+    """
+    Model for representing documents.
+
+    Attributes:
+        title (CharField): The title of the document.
+        summary (TextField): The summary of the document.
+        authors (CharField): The authors of the document.
+        pdf (BinaryField): The binary content of the PDF document.
+        created_by (ForeignKey): The user who created the document.
+        updated_by (ForeignKey): The user who last updated the document.
+        created_at (DateTimeField): The datetime when the document was created.
+        updated_at (DateTimeField): The datetime when the document was last updated.
+    """
+
     title = models.CharField(max_length=255)
     summary = models.TextField()
     authors = models.CharField(max_length=255)
@@ -19,13 +33,34 @@ class Documents(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.title
+        """
+        Return a string representation of the document.
+
+        Returns:
+            str: The title of the document.
+        """
+        return str(self.title)
 
     def save(self, *args, **kwargs):
+        """
+        Save the document.
+
+        Converts the PDF field to binary before saving.
+
+        Args:
+            *args: Variable length argument list.
+            **kwargs: Keyword arguments.
+        """
         self.convert_pdf_to_binary()
         super().save(*args, **kwargs)
 
     def convert_pdf_to_binary(self):
+        """
+        Convert the base64 encoded PDF to binary.
+
+        Raises:
+            ValueError: If there is an error converting the PDF field to binary.
+        """
         try:
             # Check if the pdf field is already binary
             if not isinstance(self.pdf, bytes):
@@ -38,6 +73,8 @@ class Documents(models.Model):
                 # Assign the binary content to the pdf field
                 self.pdf = content_file.read()
 
-        except Exception as e:
+        except Exception as error:
             # Handle any conversion errors
-            raise ValueError("Error converting PDF field to binary: {}".format(str(e)))
+            raise ValueError(
+                "Error converting PDF field to binary: {}".format(str(error))
+            )

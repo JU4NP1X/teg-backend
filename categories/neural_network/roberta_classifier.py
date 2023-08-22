@@ -1,26 +1,63 @@
-from transformers import AutoTokenizer
-from .data_processer import Data_Processer
-from .data_module import Data_Module
-from .model import Categories_Classifier
-import pytorch_lightning as pl
 import os
-from ..models import Categories
-from pytorch_lightning.callbacks import ModelCheckpoint
 import shutil
-import torch
-import pytorch_lightning.loggers as logger
+import pytorch_lightning as pl
+from pytorch_lightning.callbacks import ModelCheckpoint
+from transformers import AutoTokenizer
+from categories.models import Categories
+from categories.neural_network.data_processer import DataProcesser
+from categories.neural_network.data_module import DataModule
+from categories.neural_network.model import CategoriesClassifier
+
 
 BASE_DIR = os.path.dirname(os.path.realpath(__name__))
 
 
 def create_pretrained_copy(tokenizer_path, tokenizer_name):
+    """
+    Creates a pretrained copy of a tokenizer if it doesn't already exist.
+
+    Args:
+        tokenizer_path (str): The path to save the pretrained tokenizer.
+        tokenizer_name (str): The name of the tokenizer.
+
+    Returns:
+        None
+    """
     if not os.path.exists(tokenizer_path):
         model = AutoTokenizer.from_pretrained(tokenizer_name)
         model.save_pretrained(tokenizer_path)
 
 
 class Classifier:
+    """
+    A class that represents a classifier for categorizing data.
+
+    Attributes:
+        best_model_path (str): The path to save the best model.
+        max_len (int): The maximum length of input sequences.
+        n_epochs (int): The number of training epochs.
+        learning_rate (float): The learning rate for training.
+        best_model_checkpoint (str): The path to save the best model checkpoint.
+        model_name (str): The name of the model.
+        tokenizer_name (str): The name of the tokenizer.
+        tokenizer (AutoTokenizer): The pretrained tokenizer.
+        df (DataProcesser): The data processer object.
+        categories (list): The list of categories.
+        batch_size (int): The batch size for training.
+        config (dict): The configuration parameters for the model.
+        logs_path (str): The path to save the logs.
+    """
+
     def __init__(self, trained=True):
+        """
+        Initializes a new instance of the Classifier class.
+
+        Args:
+            trained (bool): Whether to use a trained model or not.
+
+        Returns:
+            None
+        """
         self.best_model_path = os.path.join(BASE_DIR, "trained_model")
         self.max_len = int(os.environ.get("CATEGORIES_MAX_LEN", 300))
         self.n_epochs = int(os.environ.get("CATEGORIES_EPOCHS", 20))
@@ -28,6 +65,7 @@ class Classifier:
         self.best_model_checkpoint = f"{self.best_model_path}/model.ckpt"
         self.model_name = "distilroberta-base"
         self.tokenizer_name = "roberta-base"
+        self.model = None
 
         if trained:
             self.model_name = self.best_model_checkpoint
@@ -36,7 +74,7 @@ class Classifier:
         create_pretrained_copy(tokenizer_path, self.tokenizer_name)
 
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
-        self.df = Data_Processer()
+        self.df = DataProcesser()
 
         self.categories = self.df.get_categories(trained)
         categories_names = [label_name for _, label_name in self.categories]
@@ -56,10 +94,20 @@ class Classifier:
         self.logs_path = os.path.join(BASE_DIR, "lightning_logs")
 
     def train(self, checkpoint_path=None, params_path=None):
+        """
+        Trains the classifier model.
+
+        Args:
+            checkpoint_path (str): The path to the model checkpoint.
+            params_path (str): The path to the model parameters.
+
+        Returns:
+            None
+        """
         train_df, val_df = self.df.preprocess_data()
         categories_names = [label_name for _, label_name in self.categories]
 
-        data_module = Data_Module(
+        data_module = DataModule(
             train_data=train_df,
             val_data=val_df,
             attributes=categories_names,
@@ -69,11 +117,14 @@ class Classifier:
         data_module.setup()
         self.config["train_size"] = len(data_module.train_dataloader())
         if checkpoint_path is not None and params_path is not None:
-            self.model = Categories_Classifier.load_from_checkpoint(
-                checkpoint_path, hparams_file=params_path, pos_weights=self.df.weights, learning_rate=self.learning_rate
+            self.model = CategoriesClassifier.load_from_checkpoint(
+                checkpoint_path,
+                hparams_file=params_path,
+                pos_weights=self.df.weights,
+                learning_rate=self.learning_rate,
             )
         else:
-            self.model = Categories_Classifier(self.config, self.df.weights)
+            self.model = CategoriesClassifier(self.config, self.df.weights)
 
         checkpoint_callback = ModelCheckpoint(
             save_top_k=1,
@@ -106,6 +157,12 @@ class Classifier:
             os.makedirs(logs_dir, exist_ok=True)
 
     def save_categories(self):
+        """
+        Saves the categories.
+
+        Returns:
+            None
+        """
         Categories.objects.all().update(label_index=None)
         index = 0
         for label_id, _ in self.categories:

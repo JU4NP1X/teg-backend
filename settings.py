@@ -6,6 +6,9 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent
 
+api_path = os.getenv("API_PATH")
+template_dir = Path(api_path) / "templates"
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -56,6 +59,7 @@ REST_FRAMEWORK = {
     "DEFAULT_API_TITLE": "VoCo UC API",
     "DEFAULT_API_DESCRIPTION": "API of the standarized text classification of the Carabobo University",
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.TokenAuthentication",
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
@@ -68,7 +72,7 @@ ROOT_URLCONF = "urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": ["/home/juan/projects/teg/backend/templates"],
+        "DIRS": [str(template_dir)],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -104,6 +108,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://*.127.0.0.1",
     "https://*.localhost",
     "http://localhost:3050",
+    "http://localhost:3000",
 ]
 
 # Password validation

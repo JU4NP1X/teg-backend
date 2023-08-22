@@ -1,6 +1,6 @@
+import os
 from django.core.management.base import BaseCommand
 from ...neural_network.roberta_classifier import Classifier
-import os
 
 BASE_DIR = os.path.dirname(os.path.realpath(__name__))
 

@@ -1,13 +1,12 @@
 import pandas as pd
-import torch
+import numpy as np
 from django.db.models.functions import Concat
 from django.db.models import Value, CharField, Subquery, OuterRef, Func
-from ..models import Categories
-from datasets.models import Datasets_English_Translations
-import numpy as np
+from datasets.models import DatasetsEnglishTranslations
 from collections import Counter
 from sklearn.utils import shuffle
 from sklearn.preprocessing import MultiLabelBinarizer
+from categories.models import Categories
 
 
 class GroupConcat(Func):
@@ -15,9 +14,9 @@ class GroupConcat(Func):
     template = "%(function)s(%(expressions)s)"
 
 
-class Data_Processer:
+class DataProcesser:
     def __init__(self):
-        self.datasets = Datasets_English_Translations.objects.filter(
+        self.datasets = DatasetsEnglishTranslations.objects.filter(
             dataset__categories__deprecated=False,
         ).annotate(
             CONTEXT=Concat(

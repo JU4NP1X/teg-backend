@@ -1,15 +1,27 @@
+"""
+Class for scraping datasets based on category and universities.
+"""
 import requests
-from requests.exceptions import Timeout
-from categories.models import Categories
-from .models import Datasets, Datasets_English_Translations, Datasets_University
-from translate import Translator
 from langdetect import detect
 from tqdm import tqdm
 from googletrans import Translator as GoogleTranslator
 from django.db.models import Q
+from categories.models import Categories
+from .models import Datasets, DatasetsEnglishTranslations, DatasetsUniversity
 
 
 class DatasetsScraper:
+    """
+    Class for scraping datasets based on category and universities.
+
+    Attributes:
+        category (Categories): The category of the datasets.
+        universities (list): List of universities to scrape datasets from.
+        timeout (int): Timeout for the HTTP requests.
+        session (requests.Session): Session object for making HTTP requests.
+        current_university (Datasets_University): The current university being scraped.
+    """
+
     def __init__(self, category, universities):
         self.category = category
         self.universities = universities
@@ -23,13 +35,27 @@ class DatasetsScraper:
         self.current_university = None
 
     def get_base_url(self, university):
-        university_obj = Datasets_University.objects.filter(name=university).first()
+        """
+        Get the base URL for a given university.
+
+        Args:
+            university (str): The name of the university.
+
+        Returns:
+            str: The base URL of the university.
+        """
+        university_obj = DatasetsUniversity.objects.filter(name=university).first()
         if university_obj:
             self.current_university = university_obj
             return university_obj.url
         return None
 
     def scrape(self):
+        """
+        Scrape datasets from the specified universities.
+
+        This method retrieves datasets from the universities' API based on the specified category.
+        """
         for university in self.universities:
             base_url = self.get_base_url(university)
             if not base_url:
@@ -123,7 +149,7 @@ class DatasetsScraper:
                         elif dataset and len(description) > len(dataset.summary):
                             dataset.summary = description
                             dataset.save()
-                            
+
                         if dataset:
                             # Retrieve the existing categories of the dataset.
                             existing_categories = dataset.categories.all()
@@ -138,29 +164,39 @@ class DatasetsScraper:
 
     @staticmethod
     def create_missing_translations():
+        """
+        Create missing translations for datasets.
+
+        This method creates English translations for datasets that don't have them.
+        """
         datasets = Datasets.objects.exclude(datasets_english_translations__isnull=False)
         for dataset in tqdm(datasets, desc="Creating translations"):
             try:
-                translation = Datasets_English_Translations(
+                translation = DatasetsEnglishTranslations(
                     dataset=dataset,
                     paper_name=DatasetsScraper.translate_text(dataset.paper_name),
                     summary=DatasetsScraper.translate_text(dataset.summary),
                 )
                 if translation.paper_name != "" and dataset.summary != "":
                     translation.save()
-            except Exception as e:
-                print(f"Error translating text: {e}")
+            except Exception as error:
+                print(f"Error translating text: {error}")
                 print(dataset.paper_name + " " + dataset.summary)
 
     @staticmethod
     def pass_english_text():
+        """
+        Pass English text datasets.
+
+        This method checks if the dataset's paper name and summary are in English and saves them as English translations.
+        """
         datasets = Datasets.objects.exclude(datasets_english_translations__isnull=False)
-        for dataset in tqdm(datasets, desc="Parsing english text"):
+        for dataset in tqdm(datasets, desc="Parsing English text"):
             try:
-                name_aplha2 = detect(dataset.paper_name)
-                summary_aplha2 = detect(dataset.summary)
-                if name_aplha2 == "en" and summary_aplha2 == "en":
-                    translation = Datasets_English_Translations(
+                name_alpha2 = detect(dataset.paper_name)
+                summary_alpha2 = detect(dataset.summary)
+                if name_alpha2 == "en" and summary_alpha2 == "en":
+                    translation = DatasetsEnglishTranslations(
                         dataset=dataset,
                         paper_name=dataset.paper_name,
                         summary=dataset.summary,
@@ -173,22 +209,25 @@ class DatasetsScraper:
 
     @staticmethod
     def translate_text(title):
-        origin_aplha2 = detect(title)
+        """
+        Translate text to English.
 
-        if origin_aplha2 != "en":
+        This method translates the given text to English using Google Translate API.
+
+        Args:
+            title (str): The text to be translated.
+
+        Returns:
+            str: The translated text.
+        """
+        origin_alpha2 = detect(title)
+
+        if origin_alpha2 != "en":
             translator = GoogleTranslator()
             try:
                 translated_text = translator.translate(title[:500], dest="en").text
             except Exception:
-                translator = Translator(from_lang=origin_aplha2, to_lang="en")
-                translated_text = translator.translate(title[:500])
-                if (
-                    "QUERY LENGTH LIMIT EXCEEDED. MAX ALLOWED QUERY : 500 CHARS QUERY LENGTH LIMIT EXCEEDED. MAX ALLOWED QUERY : 500 CHARS"
-                    in translated_text
-                    or "MYMEMORY WARNING: YOU USED ALL AVAILABLE FREE TRANSLATIONS"
-                    in translated_text
-                ):
-                    translated_text = ""
+                translated_text = ""
         else:
             translated_text = title
         return translated_text

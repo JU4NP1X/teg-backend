@@ -1,31 +1,53 @@
+import base64
 from rest_framework import serializers
 from .models import Documents
-import base64
-from django import forms
 
 
-class Documents_Serializer(serializers.ModelSerializer):
+class DocumentsSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the Documents model.
+
+    Converts instances of the Documents model to JSON and vice versa.
+
+    Attributes:
+        model (Documents): The Documents model to be serialized.
+        fields (str): The fields to include in the serialization.
+        read_only_fields (tuple): The fields that are read-only in the serialization.
+    """
+
     class Meta:
         model = Documents
         fields = "__all__"
         read_only_fields = ("created_at", "updated_at", "created_by", "updated_by")
 
     def to_representation(self, instance):
+        """
+        Convert the instance to a representation that includes the base64 encoded PDF.
+
+        Args:
+            instance (Documents): The instance to be converted.
+
+        Returns:
+            dict: The representation of the instance.
+        """
         representation = super().to_representation(instance)
-
-        # Get the binary content of the pdf field
-        pdf_binary = instance.pdf
-
-        # Convert the binary content to base64
-        pdf_base64 = base64.b64encode(pdf_binary).decode("utf-8")
-
-        # Update the representation with the base64 encoded pdf
+        pdf_base64 = base64.b64encode(instance.pdf.read()).decode("utf-8")
         representation["pdf"] = pdf_base64
 
         return representation
 
 
-class Documents_Text_Extractor_Serializer(serializers.Serializer):
+class DocumentsTextExtractorSerializer(serializers.Serializer):
+    """
+    Serializer for the DocumentsTextExtractor.
+
+    Converts instances of the DocumentsTextExtractor to JSON and vice versa.
+
+    Attributes:
+        title (CharField): The base64 encoded title of the document.
+        summary (CharField): The base64 encoded summary of the document.
+    """
+
     title = serializers.CharField(
         max_length=None, style={"placeholder": "Enter the base64 for the title"}
     )

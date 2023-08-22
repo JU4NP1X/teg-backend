@@ -1,27 +1,58 @@
-from rest_framework import viewsets 
-from rest_framework.views import APIView
+from rest_framework import viewsets
 from rest_framework.authtoken.models import Token
-from .models import User
 from django.contrib.auth import authenticate
-from .serializers import Users_Serializer, User_Login_Serializer
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.decorators import action
+from .models import User
+from .serializers import UsersSerializer, UserLoginSerializer
 
-class Users_ViewSet(viewsets.ModelViewSet):
+
+class UsersViewSet(viewsets.ModelViewSet):
+    """
+    Viewset for managing User objects.
+
+    Attributes:
+        queryset (QuerySet): The queryset of User objects.
+        serializer_class (Serializer): The serializer class for User objects.
+        permission_classes (list): The list of permission classes for the viewset.
+    """
+
     queryset = User.objects.all()
-    serializer_class = Users_Serializer
+    serializer_class = UsersSerializer
     permission_classes = [IsAdminUser]
 
     def get_permissions(self):
+        """
+        Get the permissions for the viewset based on the action.
+
+        Returns:
+            list: The list of permission classes.
+        """
         if self.action == "update" or self.action == "partial_update":
             self.permission_classes = [IsAuthenticated]
         return super().get_permissions()
 
-class Login_ViewSet(viewsets.ViewSet):
-    serializer_class = User_Login_Serializer
+
+class LoginViewSet(viewsets.ViewSet):
+    """
+    Viewset for user login.
+
+    Attributes:
+        serializer_class (Serializer): The serializer class for user login.
+    """
+
+    serializer_class = UserLoginSerializer
 
     def create(self, request):
+        """
+        Authenticate a user and generate an authentication token.
+
+        Args:
+            request (Request): The request object.
+
+        Returns:
+            Response: The response object containing the authentication token.
+        """
         username = request.data.get("username")
         password = request.data.get("password")
         user = authenticate(
@@ -30,7 +61,7 @@ class Login_ViewSet(viewsets.ViewSet):
             password=password,
         )
         if user is not None:
-            token, created = Token.objects.get_or_create(user=user)
+            token, _ = Token.objects.get_or_create(user=user)
             user_data = {
                 "token": token.key,
                 "id": user.id,

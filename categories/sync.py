@@ -1,11 +1,21 @@
 import requests
+import urllib.parse
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 from .models import Categories, Translations
-import urllib.parse
 
 
 class CategoriesScraper:
+    """
+    Class for scraping data from a website.
+
+    Attributes:
+        base_url (str): The base URL of the website.
+        timeout (int): The timeout for the requests.
+        alphabet (str): The alphabet to iterate through.
+        vowels_with_accents (list): The list of vowels with accents.
+    """
+
     def __init__(self):
         self.base_url = "https://vocabularies.unesco.org/browser"
         self.alphabet = "ABCDEFGHIJKLMNOUPQRSTUVWXYZ"
@@ -13,6 +23,13 @@ class CategoriesScraper:
         self.timeout = 15
 
     def scrape(self):
+        """
+        Scrape data from the website.
+
+        This method iterates through the alphabet and vowels with accents,
+        and calls the corresponding methods to get the results and details.
+
+        """
         # Loop through the alphabet and get the results for each letter
         for letter in tqdm(self.alphabet, desc="Processing letters"):
             self.get_results(letter)
@@ -26,6 +43,15 @@ class CategoriesScraper:
             self.get_details(result)
 
     def get_results(self, letter):
+        """
+        Get the results for a given letter.
+
+        Args:
+            letter (str): The letter to get the results for.
+
+        Returns:
+            list: The list of results.
+        """
         results = []
         offset = 0
         url = f"{self.base_url}/thesaurus/en/index/{letter}?offset={offset}&clang=en"
@@ -74,6 +100,12 @@ class CategoriesScraper:
         return results
 
     def get_details(self, result):
+        """
+        Get the details for a given result.
+
+        Args:
+            result (Categories): The result to get the details for.
+        """
         link = result.link
         if link and link[0] == "/":
             link = link[1:]
@@ -133,5 +165,8 @@ class CategoriesScraper:
 
 
 def start_scraping():
+    """
+    Starts the scraping proccess
+    """
     scraper = CategoriesScraper()
     scraper.scrape()
