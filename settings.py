@@ -56,7 +56,6 @@ REST_FRAMEWORK = {
     "DEFAULT_API_TITLE": "VoCo UC API",
     "DEFAULT_API_DESCRIPTION": "API of the standarized text classification of the Carabobo University",
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.TokenAuthentication",
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
@@ -84,7 +83,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "wsgi.application"
 
-AUTH_USER_MODEL = 'users.User'
+AUTH_USER_MODEL = "users.User"
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
@@ -100,6 +99,12 @@ DATABASES = {
     }
 }
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.mydomain.com",
+    "https://*.127.0.0.1",
+    "https://*.localhost",
+    "http://localhost:3050",
+]
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

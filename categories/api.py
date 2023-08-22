@@ -83,4 +83,4 @@ class Text_Classification_ViewSet(viewsets.ViewSet):
 
         predicted_labels = text_classifier.classify_text(f"{title}: {summary}")
 
-        return Response({"predicted_labels": predicted_labels})
+        return Response(predicted_labels)
