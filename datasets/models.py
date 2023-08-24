@@ -12,6 +12,7 @@ class Datasets(models.Model):
         categories (ManyToManyField): The categories associated with the dataset.
         university (ForeignKey): The university associated with the dataset.
     """
+
     paper_name = models.CharField(max_length=255, unique=True)
     summary = models.TextField()
     categories = models.ManyToManyField(Categories)
@@ -34,6 +35,7 @@ class DatasetsUniversity(models.Model):
         vid (str): The VID of the university.
         active (bool): Indicates if the university is active or not.
     """
+
     name = models.CharField(max_length=100)
     url = models.URLField()
     vid = models.CharField(
@@ -58,6 +60,7 @@ class DatasetsEnglishTranslations(models.Model):
         paper_name (str): The translated name of the paper.
         summary (str): The translated summary of the dataset.
     """
+
     dataset = models.OneToOneField(Datasets, on_delete=models.CASCADE, primary_key=True)
     paper_name = models.CharField(max_length=500)
     summary = models.TextField()

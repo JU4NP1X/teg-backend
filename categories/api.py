@@ -19,9 +19,10 @@ and neural network module.
 from rest_framework import viewsets
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
-from django_filters import rest_framework as filters
 from rest_framework.permissions import IsAdminUser, AllowAny
+from django.db.models import Count, Q, Sum, Subquery, OuterRef
 from rest_framework.response import Response
+from django_filters import rest_framework as filters
 from .neural_network.text_classifier import TextClassifier
 from .models import Categories, Translations, Authorities
 from .serializers import (
@@ -63,15 +64,7 @@ class CategoriesFilter(filters.FilterSet):
 
 class CategoriesViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for Categories model.
-
-    Attributes:
-        queryset (QuerySet): QuerySet for Categories model.
-        permission_classes (list): List of permission classes.
-        serializer_class (Serializer): Serializer class for Categories model.
-        filter_backends (list): List of filter backends.
-        search_fields (list): List of fields to search on.
-        filterset_class (CategoriesFilter): FilterSet class for Categories model.
+    Categories of the documents and datasets classification
     """
 
     queryset = Categories.objects.all()
@@ -84,7 +77,6 @@ class CategoriesViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         """
         Get the permissions required for the current action.
-
         Returns:
             list: List of permission classes.
         """
@@ -129,17 +121,9 @@ class TranslationsViewSet(viewsets.ModelViewSet):
 
 class AuthoritiesViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for Authorities model.
-
-    Attributes:
-        queryset (QuerySet): QuerySet for Authorities model.
-        permission_classes (list): List of permission classes.
-        serializer_class (Serializer): Serializer class for Authorities model.
-        filter_backends (list): List of filter backends.
-        search_fields (list): List of fields to search on.
+    ViewSet for Authorities that are the owners of the categories.
     """
 
-    queryset = Authorities.objects.all()
     permission_classes = [AllowAny]  # Permitir acceso a cualquiera para ver
     serializer_class = AuthoritySerializer
     filter_backends = [SearchFilter, OrderingFilter]

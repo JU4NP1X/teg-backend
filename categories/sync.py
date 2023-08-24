@@ -2,7 +2,9 @@ import requests
 import urllib.parse
 from bs4 import BeautifulSoup
 from tqdm import tqdm
-from .models import Categories, Translations
+from .models import Categories, Translations, Authorities
+
+requests.packages.urllib3.disable_warnings()
 
 
 class CategoriesScraper:
@@ -21,6 +23,7 @@ class CategoriesScraper:
         self.alphabet = "ABCDEFGHIJKLMNOUPQRSTUVWXYZ"
         self.vowels_with_accents = ["Á", "É", "Í", "Ó", "Ú"]
         self.timeout = 15
+        self.authority = Authorities.objects.get(name="UNESCO")
 
     def scrape(self):
         """
@@ -38,7 +41,9 @@ class CategoriesScraper:
         for vowel in tqdm(self.vowels_with_accents, desc="Processing vowels"):
             self.get_results(urllib.parse.quote(vowel))
 
-        results_2_detail = Categories.objects.exclude(translations__isnull=False)
+        results_2_detail = Categories.objects.exclude(
+            translations__isnull=False, authority=self.authority
+        )
         for result in tqdm(results_2_detail, desc="Getting details"):
             self.get_details(result)
 
@@ -56,8 +61,8 @@ class CategoriesScraper:
         offset = 0
         url = f"{self.base_url}/thesaurus/en/index/{letter}?offset={offset}&clang=en"
         try:
-            response = requests.get(url, timeout=self.timeout)
-        except Exception:
+            response = requests.get(url, timeout=self.timeout, verify=False)
+        except Exception as e:
             return results
         # Loop through the results pages
         while response.status_code == 200:
@@ -77,13 +82,15 @@ class CategoriesScraper:
                     link = a["href"]
                     name = a.text.strip()
                     Categories.objects.update_or_create(
-                        name=name, defaults={"link": link}
+                        name=name, authority=self.authority, defaults={"link": link}
                     )
                 replaced = li.find("span")
                 if replaced:
                     name = a.text.strip()
                     Categories.objects.update_or_create(
-                        name=name, defaults={"deprecated": True}
+                        name=name,
+                        authority=self.authority,
+                        defaults={"deprecated": True},
                     )
 
             # Increment the offset and get the next page of results
@@ -131,7 +138,7 @@ class CategoriesScraper:
                     name = a.text.strip()
                     link = a["href"]
                     related, _ = Categories.objects.update_or_create(
-                        name=name, defaults={"link": link}
+                        name=name, authority=self.authority, defaults={"link": link}
                     )
                     result.related_categories.add(related)
 
@@ -145,7 +152,9 @@ class CategoriesScraper:
                     name = a.text.strip()
                     link = a["href"]
                     parent, _ = Categories.objects.update_or_create(
-                        name=name.strip(), defaults={"link": link}
+                        name=name.strip(),
+                        authority=self.authority,
+                        defaults={"link": link},
                     )
                     result.parent_category = parent
                     result.save()

@@ -9,12 +9,7 @@ from .serializers import UsersSerializer, UserLoginSerializer
 
 class UsersViewSet(viewsets.ModelViewSet):
     """
-    Viewset for managing User objects.
-
-    Attributes:
-        queryset (QuerySet): The queryset of User objects.
-        serializer_class (Serializer): The serializer class for User objects.
-        permission_classes (list): The list of permission classes for the viewset.
+    Managing User objects.
     """
 
     queryset = User.objects.all()
@@ -36,9 +31,6 @@ class UsersViewSet(viewsets.ModelViewSet):
 class LoginViewSet(viewsets.ViewSet):
     """
     Viewset for user login.
-
-    Attributes:
-        serializer_class (Serializer): The serializer class for user login.
     """
 
     serializer_class = UserLoginSerializer
