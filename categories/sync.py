@@ -100,7 +100,7 @@ class CategoriesScraper:
             )
 
             try:
-                response = requests.get(url, timeout=self.timeout)
+                response = requests.get(url, timeout=self.timeout, verify=False)
             except Exception:
                 break
 
@@ -119,7 +119,7 @@ class CategoriesScraper:
 
         url = f"{self.base_url}/{link}"
         try:
-            response = requests.get(url, timeout=self.timeout)
+            response = requests.get(url, timeout=self.timeout, verify=False)
         except Exception:
             return
 

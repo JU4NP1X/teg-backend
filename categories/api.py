@@ -20,7 +20,7 @@ from rest_framework import viewsets
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.permissions import IsAdminUser, AllowAny
-from django.db.models import Count, Q, Sum, Subquery, OuterRef
+from django.db.models import Count, Q
 from rest_framework.response import Response
 from django_filters import rest_framework as filters
 from .neural_network.text_classifier import TextClassifier
@@ -124,6 +124,7 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
     ViewSet for Authorities that are the owners of the categories.
     """
 
+    queryset = Authorities.objects.all()
     permission_classes = [AllowAny]  # Permitir acceso a cualquiera para ver
     serializer_class = AuthoritySerializer
     filter_backends = [SearchFilter, OrderingFilter]
@@ -141,6 +142,16 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
                 IsAdminUser()
             ]  # Solo permitir acceso a usuarios administradores para hacer cambios
         return super().get_permissions()
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        # Obtener el valor del parámetro exclude_counts de la URL
+        exclude_counts = self.request.query_params.get("exclude_counts", False)
+        # Pasar el valor del parámetro al serializador
+        self.serializer_class.exclude_counts = exclude_counts
+
+        return queryset
 
 
 class TextClassificationViewSet(viewsets.ViewSet):

@@ -1,13 +1,10 @@
 from django.db import models
-from webcolors import CSS3_NAMES_TO_HEX
 
 
 class Authorities(models.Model):
     """
     Model representing authorities.
     """
-
-    COLOR_CHOICES = [(value, key) for key, value in CSS3_NAMES_TO_HEX.items()]
 
     STATUS_CHOICES = [
         ("NOT_TRAINED", "Not Trained"),
@@ -17,8 +14,11 @@ class Authorities(models.Model):
     ]
 
     name = models.CharField(max_length=200, unique=True)
-    color = models.CharField(max_length=7, choices=COLOR_CHOICES, default="#000000")
+    color = models.CharField(max_length=7, blank=True)
     percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    theoretical_precision = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0
+    )
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES, default="NOT_TRAINED"
     )

@@ -9,6 +9,8 @@ from django.db.models import Q
 from categories.models import Categories
 from .models import Datasets, DatasetsEnglishTranslations, DatasetsUniversity
 
+requests.packages.urllib3.disable_warnings()
+
 
 class DatasetsScraper:
     """
@@ -92,7 +94,7 @@ class DatasetsScraper:
                         "vid": self.current_university.vid,
                     }
                     response = self.session.get(
-                        base_url, params=params, timeout=self.timeout
+                        base_url, params=params, timeout=self.timeout, verify=False
                     )
                     response.raise_for_status()
                     data = response.json()
