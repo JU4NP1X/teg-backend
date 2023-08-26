@@ -63,6 +63,21 @@ class CategoriesFilter(filters.FilterSet):
         ]
 
 
+class TranslationsFilter(filters.FilterSet):
+    """
+    FilterSet for Categories model.
+    """
+
+    name = filters.CharFilter()
+    language = filters.CharFilter()
+    authority = filters.BaseInFilter(field_name="categories__authority__id")
+    exclude = filters.BaseInFilter(field_name="id", lookup_expr="inverted")
+
+    class Meta:
+        model = Translations
+        fields = ["name", "language", "authority"]
+
+
 class CategoriesViewSet(viewsets.ModelViewSet):
     """
     Categories of the documents and datasets classification
@@ -96,8 +111,9 @@ class TranslationsViewSet(viewsets.ModelViewSet):
     queryset = Translations.objects.all()
     permission_classes = [AllowAny]  # Permitir acceso a cualquiera para ver
     serializer_class = TranslationsSerializer
-    filter_backends = [SearchFilter, OrderingFilter]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ["name"]
+    filterset_class = TranslationsFilter
 
     def get_permissions(self):
         """
@@ -121,7 +137,7 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
     queryset = Authorities.objects.all()
     permission_classes = [AllowAny]  # Permitir acceso a cualquiera para ver
     serializer_class = AuthoritySerializer
-    filter_backends = [SearchFilter, OrderingFilter]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ["name"]
 
     def get_permissions(self):
