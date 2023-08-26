@@ -28,7 +28,7 @@ category_counts.png
 # Backup files
 *.bak
 *.swp
-
+*.csv
 # Models
 *.pt
 

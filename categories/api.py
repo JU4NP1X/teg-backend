@@ -16,12 +16,13 @@ Note: This code assumes the existence of the necessary models, serializers,
 and neural network module.
 """
 
+
 from rest_framework import viewsets
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
-from django_filters import rest_framework as filters
 from rest_framework.permissions import IsAdminUser, AllowAny
 from rest_framework.response import Response
+from django_filters import rest_framework as filters
 from .neural_network.text_classifier import TextClassifier
 from .models import Categories, Translations, Authorities
 from .serializers import (

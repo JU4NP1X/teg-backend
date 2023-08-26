@@ -62,16 +62,9 @@ class LoginViewSet(viewsets.ViewSet):
         )
         if user is not None:
             token, _ = Token.objects.get_or_create(user=user)
-            user_data = {
-                "token": token.key,
-                "id": user.id,
-                "username": user.username,
-                "firstName": user.first_name,
-                "lastName": user.last_name,
-                "email": user.email,
-                "isAdmin": user.is_staff
-                # Agrega cualquier otra información que desees devolver
-            }
-            return Response(user_data)
+            serializer = UsersSerializer(user)  # Serialize the user object
+            data = serializer.data
+            data["token"] = token.key  # Add the token to the response data
+            return Response(data)
         else:
             return Response({"error": "Invalid credentials"}, status=400)

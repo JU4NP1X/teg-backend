@@ -1,13 +1,13 @@
-import torch
 import os
+import torch
 import pytorch_lightning as pl
 import numpy as np
 import pandas as pd
 from transformers import AutoTokenizer
-from .data_processer import DataProcesser
-from .data_module import DataModule
-from .model import CategoriesClassifier
-from ..models import Categories
+from categories.neural_network.data_processer import DataProcesser
+from categories.neural_network.data_module import DataModule
+from categories.neural_network.model import CategoriesClassifier
+from categories.models import Categories
 
 
 BASE_DIR = os.path.dirname(os.path.realpath(__name__))
@@ -46,6 +46,10 @@ def get_descendants(categories):
 
 
 class TextClassifier:
+    """
+    Text Classifier api service
+    """
+
     def __init__(self):
         """
         Initializes the TextClassifier object.
