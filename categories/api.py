@@ -90,14 +90,7 @@ class CategoriesViewSet(viewsets.ModelViewSet):
 
 class TranslationsViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for Translations model.
-
-    Attributes:
-        queryset (QuerySet): QuerySet for Translations model.
-        permission_classes (list): List of permission classes.
-        serializer_class (Serializer): Serializer class for Translations model.
-        filter_backends (list): List of filter backends.
-        search_fields (list): List of fields to search on.
+    Translations of the categories
     """
 
     queryset = Translations.objects.all()

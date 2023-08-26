@@ -103,7 +103,7 @@ class AuthoritySerializer(serializers.ModelSerializer):
                                 output_field=IntegerField(),
                             )
                         )
-                        .filter(total_datasets__gte=50)
+                        .filter(total_datasets__gte=10)
                         .count(),
                         0,
                         output_field=IntegerField(),
@@ -123,7 +123,7 @@ class AuthoritySerializer(serializers.ModelSerializer):
                                 output_field=IntegerField(),
                             )
                         )
-                        .filter(total_datasets__lt=50)
+                        .filter(total_datasets__lt=10)
                         .count(),
                         0,
                         output_field=IntegerField(),
