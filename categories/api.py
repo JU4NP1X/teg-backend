@@ -21,6 +21,7 @@ from rest_framework import viewsets
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.permissions import IsAdminUser, AllowAny
+from django.db.models import Count, Q
 from rest_framework.response import Response
 from django_filters import rest_framework as filters
 from .neural_network.text_classifier import TextClassifier
@@ -64,15 +65,7 @@ class CategoriesFilter(filters.FilterSet):
 
 class CategoriesViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for Categories model.
-
-    Attributes:
-        queryset (QuerySet): QuerySet for Categories model.
-        permission_classes (list): List of permission classes.
-        serializer_class (Serializer): Serializer class for Categories model.
-        filter_backends (list): List of filter backends.
-        search_fields (list): List of fields to search on.
-        filterset_class (CategoriesFilter): FilterSet class for Categories model.
+    Categories of the documents and datasets classification
     """
 
     queryset = Categories.objects.all()
@@ -85,7 +78,6 @@ class CategoriesViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         """
         Get the permissions required for the current action.
-
         Returns:
             list: List of permission classes.
         """
@@ -130,14 +122,7 @@ class TranslationsViewSet(viewsets.ModelViewSet):
 
 class AuthoritiesViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for Authorities model.
-
-    Attributes:
-        queryset (QuerySet): QuerySet for Authorities model.
-        permission_classes (list): List of permission classes.
-        serializer_class (Serializer): Serializer class for Authorities model.
-        filter_backends (list): List of filter backends.
-        search_fields (list): List of fields to search on.
+    ViewSet for Authorities that are the owners of the categories.
     """
 
     queryset = Authorities.objects.all()
@@ -158,6 +143,16 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
                 IsAdminUser()
             ]  # Solo permitir acceso a usuarios administradores para hacer cambios
         return super().get_permissions()
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        # Obtener el valor del parámetro exclude_counts de la URL
+        exclude_counts = self.request.query_params.get("exclude_counts", False)
+        # Pasar el valor del parámetro al serializador
+        self.serializer_class.exclude_counts = exclude_counts
+
+        return queryset
 
 
 class TextClassificationViewSet(viewsets.ViewSet):

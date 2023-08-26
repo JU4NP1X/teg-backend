@@ -3,42 +3,49 @@ from django.contrib.auth.hashers import make_password
 from users.models import User
 
 
+from rest_framework import serializers
+from django.contrib.auth.hashers import make_password
+from users.models import User
+
+
 class UsersSerializer(serializers.ModelSerializer):
     """
     Serializer for the User model.
 
     Attributes:
         password (CharField): The password field for the user.
+        is_admin (BooleanField): Indicates if the user is an administrator.
     """
 
     password = serializers.CharField(
         min_length=8, max_length=128, write_only=True, style={"input_type": "password"}
     )
+    is_admin = serializers.BooleanField(required=False)
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "first_name", "last_name", "password"]
+        fields = [
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "password",
+            "is_admin",
+        ]
         extra_kwargs = {"password": {"write_only": True}}
 
-    def validate_username(self, value):
+    def get_is_admin(self, obj):
         """
-        Validate the username field.
+        Get the value of the is_admin field.
 
         Args:
-            value (str): The username value.
+            obj (User): The User object.
 
         Returns:
-            str: The validated username value.
-
-        Raises:
-            serializers.ValidationError: If the username contains invalid characters.
+            bool: True if the user is an administrator, False otherwise.
         """
-        # Verify if the username only contains letters and numbers
-        if not value.isalnum():
-            raise serializers.ValidationError(
-                "El nombre de usuario solo puede contener letras y números."
-            )
-        return value
+        return obj.is_superuser
 
     def validate_password(self, value):
         """
@@ -60,6 +67,26 @@ class UsersSerializer(serializers.ModelSerializer):
             )
         return value
 
+    def validate_username(self, value):
+        """
+        Validate the username field.
+
+        Args:
+            value (str): The username value.
+
+        Returns:
+            str: The validated username value.
+
+        Raises:
+            serializers.ValidationError: If the username contains invalid characters.
+        """
+        # Verify if the username only contains letters and numbers
+        if not value.isalnum():
+            raise serializers.ValidationError(
+                "El nombre de usuario solo puede contener letras y números."
+            )
+        return value
+
     def create(self, validated_data):
         """
         Create a new user.
@@ -70,25 +97,61 @@ class UsersSerializer(serializers.ModelSerializer):
         Returns:
             User: The created user object.
         """
-        validated_data["password"] = make_password(validated_data["password"])
+        password = validated_data.pop("password")
+        is_admin = validated_data.pop("is_admin", False)
+        validated_data["password"] = make_password(password)
         user = User.objects.create_user(**validated_data)
+        user.is_superuser = is_admin
+        user.save()
         return user
+
+    def to_representation(self, instance):
+        """
+        Convert the user instance to a representation.
+
+        Args:
+            instance (User): The User instance.
+
+        Returns:
+            dict: The serialized representation of the user.
+        """
+        representation = super().to_representation(instance)
+        representation["is_admin"] = self.get_is_admin(instance)
+        return representation
 
     def update(self, instance, validated_data):
         """
         Update an existing user.
 
         Args:
-            instance (User): The user instance to be updated.
+            instance (User): The user instance to update.
             validated_data (dict): The validated data for updating the user.
 
         Returns:
             User: The updated user object.
         """
         password = validated_data.pop("password", None)
+        is_admin = validated_data.pop("is_admin", None)
         if password:
             validated_data["password"] = make_password(password)
-        return super().update(instance, validated_data)
+        user = super().update(instance, validated_data)
+        if is_admin is not None:
+            user.is_superuser = is_admin
+            user.save()
+        return user
+
+    def partial_update(self, instance, validated_data):
+        """
+        Partially update an existing user.
+
+        Args:
+            instance (User): The user instance to update.
+            validated_data (dict): The validated data for updating the user.
+
+        Returns:
+            User: The updated user object.
+        """
+        return self.update(instance, validated_data)
 
 
 class UserLoginSerializer(serializers.Serializer):

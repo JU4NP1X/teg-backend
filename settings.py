@@ -19,8 +19,6 @@ SECRET_KEY = "django-insecure-6_bhgn%x3yr!z4c-1_cr4at7m9_8rrv)b^=l_gzg845**u6rxw
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
 
 # Application definition
 
@@ -32,6 +30,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # Modules
+    "corsheaders",
     "rest_framework",
     "django_crontab",
     "requests",
@@ -45,9 +44,13 @@ INSTALLED_APPS = [
 ]
 
 
+CORS_ALLOW_ALL_ORIGINS = True
+
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -103,14 +106,6 @@ DATABASES = {
     }
 }
 
-CSRF_TRUSTED_ORIGINS = [
-    "https://*.mydomain.com",
-    "https://*.127.0.0.1",
-    "https://*.localhost",
-    "http://localhost:3050",
-    "http://localhost:3000",
-]
-
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 
@@ -140,7 +135,6 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/

@@ -6,7 +6,25 @@ class Authorities(models.Model):
     Model representing authorities.
     """
 
+    STATUS_CHOICES = [
+        ("NOT_TRAINED", "Not Trained"),
+        ("TRAINING", "Training"),
+        ("COMPLETE", "Complete"),
+        ("GETTING_DATA", "Getting Data"),
+    ]
+
     name = models.CharField(max_length=200, unique=True)
+    color = models.CharField(max_length=7, blank=True)
+    percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    theoretical_precision = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0
+    )
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default="NOT_TRAINED"
+    )
+    last_training_date = models.DateField(null=True, blank=True)
+    active = models.BooleanField(default=True)
+    native = models.BooleanField(default=False)
 
     def __str__(self):
         return str(self.name)

@@ -4,7 +4,7 @@ Datasets syncronizer
 from django.core.management.base import BaseCommand
 from django.db.models import Count
 from tqdm import tqdm
-from categories.models import Categories
+from categories.models import Authorities, Categories
 from ...models import DatasetsUniversity
 from ...sync import DatasetsScraper
 
@@ -27,6 +27,9 @@ class Command(BaseCommand):
             "--universities", nargs="*", type=str, help="List of universities"
         )
         parser.add_argument(
+            "--authorities", nargs="*", type=int, help="List of athorities"
+        )
+        parser.add_argument(
             "--reset", action="store_true", help="Reset searched_for_datasets to False"
         )
 
@@ -44,23 +47,44 @@ class Command(BaseCommand):
                 "name", flat=True
             )
 
+        authorities = options["authorities"]
+        if not authorities:
+            authorities = Authorities.objects.filter(active=True)
+        else:
+            authorities = Authorities.objects.filter(active=True, id__in=authorities)
         if options["reset"]:
             Categories.objects.update(searched_for_datasets=False)
+        for authority in tqdm(authorities):
+            if authority.status == "TRAINING" or authority.status == "GETTING_DATA":
+                continue
+            authority.status = "GETTING_DATA"
+            authority.percentage = 0
+            authority.save()
 
-        # Retrieve the categories objects that have not been searched for datasets or have less than 10 examples
-        categories = (
-            Categories.objects.filter(deprecated=False, searched_for_datasets=False)
-            .annotate(cuenta=Count("datasets"))
-            .filter(cuenta__lt=10)
-        )
+            categories = (
+                Categories.objects.filter(deprecated=False, searched_for_datasets=False)
+                .annotate(cuenta=Count("datasets"))
+                .filter(cuenta__lt=10, authority__id=authority.id)
+            )
+            total_categories = len(categories)
+            categories_progress = tqdm(categories)
+            progress_counter = 0
 
-        categories_progress = tqdm(categories)
-        for categorie in categories_progress:
-            categories_progress.set_description(f"Scraping category '{categorie.name}'")
-            scraper = DatasetsScraper(categorie, universities)
-            scraper.scrape()
-            categorie.searched_for_datasets = True
-            categorie.save()
+            for categorie in categories_progress:
+                progress_counter += 1
+                authority.percentage = (progress_counter / total_categories) * 100
+                authority.save()
+                categories_progress.set_description(
+                    f"Scraping category '{categorie.name}'"
+                )
+                scraper = DatasetsScraper(categorie, universities)
+                scraper.scrape()
+                categorie.searched_for_datasets = True
+                categorie.save()
 
-        DatasetsScraper.pass_english_text()
-        DatasetsScraper.create_missing_translations()
+            DatasetsScraper.pass_english_text()
+            DatasetsScraper.create_missing_translations()
+
+            authority.status = "COMPLETE"
+            authority.percentage = 0
+            authority.save()

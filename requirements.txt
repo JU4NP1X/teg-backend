@@ -17,6 +17,7 @@ cycler==0.11.0
 cymem==2.0.7
 deap==1.4.1
 Django==4.2.3
+django-cors-headers
 django-crontab==0.7.1
 django-filter==23.2
 djangorestframework==3.14.0
@@ -71,6 +72,7 @@ pathy==0.10.2
 Pillow==10.0.0
 preshed==3.0.8
 pydantic==1.10.12
+pylint-django
 pyparsing==3.0.9
 pytesseract==0.3.10
 python-dateutil==2.8.2
@@ -109,5 +111,5 @@ typing_extensions==4.7.1
 tzdata==2023.3
 urllib3==2.0.4
 wasabi==1.1.2
+webcolors
 yarl==1.9.2
-pylint-django
