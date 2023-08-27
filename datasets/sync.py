@@ -21,7 +21,7 @@ class DatasetsScraper:
         universities (list): List of universities to scrape datasets from.
         timeout (int): Timeout for the HTTP requests.
         session (requests.Session): Session object for making HTTP requests.
-        current_university (Datasets_University): The current university being scraped.
+        current_university (university): The current university being scraped.
     """
 
     def __init__(self, category, universities):
@@ -171,7 +171,7 @@ class DatasetsScraper:
 
         This method creates English translations for datasets that don't have them.
         """
-        datasets = Datasets.objects.exclude(datasets_english_translations__isnull=False)
+        datasets = Datasets.objects.exclude(datasetsenglishtranslations__isnull=False)
         for dataset in tqdm(datasets, desc="Creating translations"):
             try:
                 translation = DatasetsEnglishTranslations(
@@ -192,7 +192,7 @@ class DatasetsScraper:
 
         This method checks if the dataset's paper name and summary are in English and saves them as English translations.
         """
-        datasets = Datasets.objects.exclude(datasets_english_translations__isnull=False)
+        datasets = Datasets.objects.exclude(datasetsenglishtranslations__isnull=False)
         for dataset in tqdm(datasets, desc="Parsing English text"):
             try:
                 name_alpha2 = detect(dataset.paper_name)

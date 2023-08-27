@@ -2,6 +2,7 @@ import base64
 from django.db import models
 from django.core.files.base import ContentFile
 from users.models import User
+from categories.models import Categories
 
 
 class Documents(models.Model):
@@ -22,6 +23,7 @@ class Documents(models.Model):
     title = models.CharField(max_length=255)
     summary = models.TextField()
     authors = models.CharField(max_length=255)
+    categories = models.ManyToManyField(Categories)
     pdf = models.BinaryField()
     created_by = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="documents_created"
@@ -78,3 +80,6 @@ class Documents(models.Model):
             raise ValueError(
                 "Error converting PDF field to binary: {}".format(str(error))
             )
+
+    class Meta:
+        db_table = "documents"

@@ -29,6 +29,9 @@ class Authorities(models.Model):
     def __str__(self):
         return str(self.name)
 
+    class Meta:
+        db_table = "categories_authorities"
+
 
 class Categories(models.Model):
     """
@@ -66,6 +69,9 @@ class Categories(models.Model):
             descendants.append(child.include_descendants())
         return {"name": self.name, "children": descendants}
 
+    class Meta:
+        db_table = "categories"
+
 
 class Translations(models.Model):
     """
@@ -83,3 +89,6 @@ class Translations(models.Model):
 
     def __str__(self):
         return str(self.name)
+
+    class Meta:
+        db_table = "categories_translations"

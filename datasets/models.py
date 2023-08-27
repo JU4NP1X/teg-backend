@@ -24,6 +24,9 @@ class Datasets(models.Model):
         """
         return str(self.paper_name)
 
+    class Meta:
+        db_table = "datasets"
+
 
 class DatasetsUniversity(models.Model):
     """
@@ -50,6 +53,9 @@ class DatasetsUniversity(models.Model):
         """
         return str(self.name)
 
+    class Meta:
+        db_table = "datasets_university"
+
 
 class DatasetsEnglishTranslations(models.Model):
     """
@@ -70,3 +76,6 @@ class DatasetsEnglishTranslations(models.Model):
         Returns a string representation of the translated dataset.
         """
         return str(self.dataset.paper_name)
+
+    class Meta:
+        db_table = "datasets_english_translations"
