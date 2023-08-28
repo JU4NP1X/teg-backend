@@ -4,10 +4,10 @@ translations, authorities, and text classification.
 
 Classes:
 - CategoriesFilter: A filter class for filtering categories based on various criteria.
-- Categories_ViewSet: A viewset for handling CRUD operations on categories.
-- Translations_ViewSet: A viewset for handling CRUD operations on translations.
-- Authorities_ViewSet: A viewset for handling CRUD operations on authorities.
-- Text_Classification_ViewSet: A viewset for performing text classification.
+- CategoriesViewSet: A viewset for handling CRUD operations on categories.
+- TranslationsViewSet: A viewset for handling CRUD operations on translations.
+- AuthoritiesViewSet: A viewset for handling CRUD operations on authorities.
+- TextClassificationViewSet: A viewset for performing text classification.
 
 Functions:
 - create: A function for handling the creation of text classification predictions.
@@ -16,14 +16,17 @@ Note: This code assumes the existence of the necessary models, serializers,
 and neural network module.
 """
 
-
-from rest_framework import viewsets
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.filters import SearchFilter, OrderingFilter
-from rest_framework.permissions import IsAdminUser, AllowAny
-from django.db.models import Count, Q
-from rest_framework.response import Response
+import os
+from datetime import datetime
+from django.conf import settings
+from threading import Lock
+from datetime import datetime, timezone
 from django_filters import rest_framework as filters
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import viewsets
+from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
+from rest_framework.response import Response
 from .neural_network.text_classifier import TextClassifier
 from .models import Categories, Translations, Authorities
 from .serializers import (
@@ -32,6 +35,9 @@ from .serializers import (
     AuthoritySerializer,
     TextClassificationSerializer,
 )
+from django.conf import settings
+
+BASE_DIR = os.path.dirname(os.path.realpath(__name__))
 
 
 class CategoriesFilter(filters.FilterSet):
@@ -71,7 +77,7 @@ class TranslationsFilter(filters.FilterSet):
     name = filters.CharFilter()
     language = filters.CharFilter()
     authority = filters.BaseInFilter(field_name="categories__authority__id")
-    exclude = filters.BaseInFilter(field_name="id", lookup_expr="inverted")
+    exclude = filters.BaseInFilter(field_name="id", lookup_expr="in", exclude=True)
 
     class Meta:
         model = Translations
@@ -84,7 +90,7 @@ class CategoriesViewSet(viewsets.ModelViewSet):
     """
 
     queryset = Categories.objects.all()
-    permission_classes = [AllowAny]  # Permitir acceso a cualquiera para ver
+    permission_classes = [AllowAny]  # Allow access to anyone to view
     serializer_class = CategoriesSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ["name"]
@@ -97,9 +103,7 @@ class CategoriesViewSet(viewsets.ModelViewSet):
             list: List of permission classes.
         """
         if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [
-                IsAdminUser()
-            ]  # Solo permitir acceso a usuarios administradores para hacer cambios
+            return [IsAdminUser()]  # Only allow access to admin users to make changes
         return super().get_permissions()
 
 
@@ -109,7 +113,7 @@ class TranslationsViewSet(viewsets.ModelViewSet):
     """
 
     queryset = Translations.objects.all()
-    permission_classes = [AllowAny]  # Permitir acceso a cualquiera para ver
+    permission_classes = [AllowAny]  # Allow access to anyone to view
     serializer_class = TranslationsSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ["name"]
@@ -123,10 +127,22 @@ class TranslationsViewSet(viewsets.ModelViewSet):
             list: List of permission classes.
         """
         if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [
-                IsAdminUser()
-            ]  # Solo permitir acceso a usuarios administradores para hacer cambios
+            return [IsAdminUser()]  # Only allow access to admin users to make changes
         return super().get_permissions()
+
+    def get_queryset(self):
+        """
+        Get the filtered queryset based on the request parameters.
+
+        Returns:
+            queryset: Filtered queryset.
+        """
+        queryset = super().get_queryset()
+        filter_params = self.request.GET.dict()
+        exclude_ids = filter_params.pop("exclude", None)
+        if exclude_ids:
+            queryset = queryset.exclude(id__in=exclude_ids.split(","))
+        return queryset
 
 
 class AuthoritiesViewSet(viewsets.ModelViewSet):
@@ -135,7 +151,7 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
     """
 
     queryset = Authorities.objects.all()
-    permission_classes = [AllowAny]  # Permitir acceso a cualquiera para ver
+    permission_classes = [AllowAny]  # Allow access to anyone to view
     serializer_class = AuthoritySerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ["name"]
@@ -148,17 +164,15 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
             list: List of permission classes.
         """
         if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [
-                IsAdminUser()
-            ]  # Solo permitir acceso a usuarios administradores para hacer cambios
+            return [IsAdminUser()]  # Only allow access to admin users to make changes
         return super().get_permissions()
 
     def get_queryset(self):
         queryset = super().get_queryset()
 
-        # Obtener el valor del parámetro exclude_counts de la URL
+        # Get the value of the exclude_counts parameter from the URL
         exclude_counts = self.request.query_params.get("exclude_counts", False)
-        # Pasar el valor del parámetro al serializador
+        # Pass the value of the parameter to the serializer
         self.serializer_class.exclude_counts = exclude_counts
 
         return queryset
@@ -173,6 +187,7 @@ class TextClassificationViewSet(viewsets.ViewSet):
     """
 
     serializer_class = TextClassificationSerializer
+    permission_classes = [IsAuthenticated]  # Allow access to anyone to view
 
     def create(self, request):
         """
@@ -186,8 +201,40 @@ class TextClassificationViewSet(viewsets.ViewSet):
         """
         title = request.data.get("title")
         summary = request.data.get("summary")
-        text_classifier = TextClassifier()
+        authority_id = request.data.get("authority_id")
+        model_path = os.path.join(BASE_DIR, "trained_model")
+        model_checkpoint = f"{model_path}/{authority_id}/model.ckpt"
 
-        predicted_labels = text_classifier.classify_text(f"{title}: {summary}")
+        if not os.path.exists(model_path) or not os.path.exists(model_checkpoint):
+            return Response("No trained classifier available for this authority")
+
+        # Check if the lock exists
+        if authority_id not in settings.CLASSIFIERS_LOCKS:
+            settings.CLASSIFIERS_LOCKS[authority_id] = Lock()
+
+        with settings.CLASSIFIERS_LOCKS[authority_id]:
+            # Check if the text_classifier exists
+            authority = Authorities.objects.filter(id=authority_id).first()
+
+            if not authority.last_training_date:
+                return Response("No trained classifier available for this authority")
+
+            if authority_id not in settings.TEXT_CLASSIFIERS:
+                text_classifier = settings.TEXT_CLASSIFIERS[
+                    authority_id
+                ] = TextClassifier(
+                    authority_id=authority_id, loaded_at=datetime.now(timezone.utc)
+                )
+            else:
+                text_classifier = settings.TEXT_CLASSIFIERS[authority_id]
+
+            # Check if the classifier needs to be reloaded
+            if text_classifier.loaded_at < authority.last_training_date:
+                text_classifier = TextClassifier(
+                    authority_id=authority_id, loaded_at=datetime.now(timezone.utc)
+                )
+                settings.TEXT_CLASSIFIERS[authority_id] = text_classifier
+
+            predicted_labels = text_classifier.classify_text(f"{title}: {summary}")
 
         return Response(predicted_labels)

@@ -6,17 +6,19 @@ from datasets.models import Datasets
 
 
 class CategoriesSerializer(serializers.ModelSerializer):
-    """
-    Serializer for the Categories model.
-
-    Attributes:
-        Meta (class): The metadata class for the serializer.
-    """
+    children = serializers.SerializerMethodField()
 
     class Meta:
         model = Categories
-        fields = "__all__"
-        read_only_fields = ("created_at", "")
+        exclude = [
+            "lft",
+            "rght",
+        ]
+
+    def get_children(self, obj):
+        children = obj.get_children()
+        serializer = self.__class__(children, many=True)
+        return serializer.data
 
 
 class AuthoritySerializer(serializers.ModelSerializer):
@@ -43,10 +45,8 @@ class AuthoritySerializer(serializers.ModelSerializer):
                     datasets_count=Coalesce(
                         Datasets.objects.filter(
                             Q(categories__authority__id=obj.id)
-                            | Q(categories__parent_category__authority__id=obj.id)
-                            | Q(
-                                categories__parent_category__parent_category__authority__id=obj.id
-                            ),
+                            | Q(categories__parent__authority__id=obj.id)
+                            | Q(categories__parent__parent__authority__id=obj.id),
                             categories__deprecated=False,
                         )
                         .values("id")
@@ -60,7 +60,7 @@ class AuthoritySerializer(serializers.ModelSerializer):
                             "categories",
                             filter=Q(
                                 categories__label_index__isnull=True,
-                                categories__parent_category__isnull=True,
+                                categories__parent__isnull=True,
                                 categories__deprecated=False,
                             ),
                         ),
@@ -71,7 +71,7 @@ class AuthoritySerializer(serializers.ModelSerializer):
                             "categories",
                             filter=Q(
                                 categories__label_index__isnull=False,
-                                categories__parent_category__isnull=True,
+                                categories__parent__isnull=True,
                                 categories__deprecated=False,
                             ),
                         ),
@@ -82,7 +82,7 @@ class AuthoritySerializer(serializers.ModelSerializer):
                             "categories",
                             filter=Q(
                                 categories__label_index__isnull=False,
-                                categories__parent_category__isnull=True,
+                                categories__parent__isnull=True,
                                 categories__deprecated=True,
                             ),
                         ),
@@ -91,14 +91,14 @@ class AuthoritySerializer(serializers.ModelSerializer):
                     representated_category_count=Coalesce(
                         Categories.objects.filter(
                             deprecated=False,
-                            parent_category__isnull=True,
+                            parent__isnull=True,
                             authority__id=obj.id,
                         )
                         .annotate(
                             total_datasets=Coalesce(
                                 Count("datasets")
-                                + Count("parent_category__datasets")
-                                + Count("parent_category__parent_category__datasets"),
+                                + Count("parent__datasets")
+                                + Count("parent__parent__datasets"),
                                 0,
                                 output_field=IntegerField(),
                             )
@@ -111,14 +111,14 @@ class AuthoritySerializer(serializers.ModelSerializer):
                     not_representated_category_count=Coalesce(
                         Categories.objects.filter(
                             deprecated=False,
-                            parent_category__isnull=True,
+                            parent__isnull=True,
                             authority__id=obj.id,
                         )
                         .annotate(
                             total_datasets=Coalesce(
                                 Count("datasets")
-                                + Count("parent_category__datasets")
-                                + Count("parent_category__parent_category__datasets"),
+                                + Count("parent__datasets")
+                                + Count("parent__parent__datasets"),
                                 0,
                                 output_field=IntegerField(),
                             )

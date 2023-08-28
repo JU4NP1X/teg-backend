@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # Modules
+    "mptt",
     "corsheaders",
     "rest_framework",
     "django_crontab",
@@ -148,3 +149,7 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CRONJOBS = [("0 0 * * 6", "categories.sync.start_scraping")]
+
+
+CLASSIFIERS_LOCKS = {}
+TEXT_CLASSIFIERS = {}

@@ -29,28 +29,12 @@ def create_pretrained_copy(tokenizer_path, tokenizer_name):
         model.save_pretrained(tokenizer_path)
 
 
-def get_descendants(categories):
-    """
-    Retrieves the descendants of the given categories.
-
-    Args:
-        categories (list): A list of categories.
-
-    Returns:
-        list: A list of descendants for each category.
-    """
-    descendants = []
-    for category in categories:
-        descendants.append(category.include_descendants())
-    return descendants
-
-
 class TextClassifier:
     """
     Text Classifier api service
     """
 
-    def __init__(self):
+    def __init__(self, authority_id, loaded_at):
         """
         Initializes the TextClassifier object.
 
@@ -58,9 +42,10 @@ class TextClassifier:
             None
         """
         self.best_model_path = os.path.join(BASE_DIR, "trained_model")
-        self.best_model_checkpoint = f"{self.best_model_path}/model.ckpt"
-        self.best_model_params = f"{self.best_model_path}/hparams.yaml"
+        self.best_model_checkpoint = f"{self.best_model_path}/{authority_id}/model.ckpt"
+        self.best_model_params = f"{self.best_model_path}/{authority_id}/hparams.yaml"
         self.max_len = int(os.environ.get("CATEGORIES_MAX_LEN", 300))
+        self.loaded_at = loaded_at
 
         self.df = DataProcesser()
         self.categories = self.df.get_categories(True)
@@ -107,6 +92,5 @@ class TextClassifier:
         close_indexes = np.where(final_output >= 0.5)[0]
         filtered_categories = Categories.objects.filter(
             label_index__in=list(close_indexes)
-        )
-        categories_list = get_descendants(filtered_categories)
+        ).dec
         return categories_list

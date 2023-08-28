@@ -2,6 +2,7 @@ import requests
 import urllib.parse
 from bs4 import BeautifulSoup
 from tqdm import tqdm
+from django.db.models import Q
 from .models import Categories, Translations, Authorities
 
 requests.packages.urllib3.disable_warnings()
@@ -20,8 +21,8 @@ class CategoriesScraper:
 
     def __init__(self):
         self.base_url = "https://vocabularies.unesco.org/browser"
-        self.alphabet = "ABCDEFGHIJKLMNOUPQRSTUVWXYZ"
-        self.vowels_with_accents = ["Á", "É", "Í", "Ó", "Ú"]
+        self.alphabet = ""
+        self.vowels_with_accents = []
         self.timeout = 15
         self.authority = Authorities.objects.get(name="UNESCO")
 
@@ -41,11 +42,23 @@ class CategoriesScraper:
         for vowel in tqdm(self.vowels_with_accents, desc="Processing vowels"):
             self.get_results(urllib.parse.quote(vowel))
 
-        results_2_detail = Categories.objects.exclude(
-            translations__isnull=False, authority=self.authority
+        results_2_detail = Categories.objects.filter(authority=self.authority).exclude(
+            translations__isnull=False
         )
         for result in tqdm(results_2_detail, desc="Getting details"):
             self.get_details(result)
+
+            # Break the relationship between deprecated categories and their children
+
+        deprecated_categories = Categories.objects.filter(
+            Q(parent__isnull=False) | Q(children__isnull=False),
+            deprecated=True,
+        )
+        for category in deprecated_categories:
+            category.children.clear()
+            category.parent = None
+            category.level = 0  # Establecer un nivel válido para la categoría
+            category.save()
 
     def get_results(self, letter):
         """
@@ -81,17 +94,13 @@ class CategoriesScraper:
                 if a:
                     link = a["href"]
                     name = a.text.strip()
-                    Categories.objects.update_or_create(
+                    category, _ = Categories.objects.update_or_create(
                         name=name, authority=self.authority, defaults={"link": link}
                     )
-                replaced = li.find("span")
-                if replaced:
-                    name = a.text.strip()
-                    Categories.objects.update_or_create(
-                        name=name,
-                        authority=self.authority,
-                        defaults={"deprecated": True},
-                    )
+                    replaced = li.find("span")
+                    if replaced:
+                        category.deprecated = True
+                        category.save()
 
             # Increment the offset and get the next page of results
             offset += 250
@@ -120,7 +129,8 @@ class CategoriesScraper:
         url = f"{self.base_url}/{link}"
         try:
             response = requests.get(url, timeout=self.timeout, verify=False)
-        except Exception:
+        except Exception as exept:
+            print(exept)
             return
 
         if response.status_code != 200:
@@ -156,8 +166,9 @@ class CategoriesScraper:
                         authority=self.authority,
                         defaults={"link": link},
                     )
-                    result.parent_category = parent
-                    result.save()
+                    if (not parent.deprecated) and (not result.deprecated):
+                        result.parent = parent
+                        result.save()
 
         # Find the translations in other languages
         other_languages = soup.find_all("a", hreflang=True, class_=False)
@@ -175,7 +186,7 @@ class CategoriesScraper:
 
 def start_scraping():
     """
-    Starts the scraping proccess
+    Starts the scraping process
     """
     scraper = CategoriesScraper()
     scraper.scrape()

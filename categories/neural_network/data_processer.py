@@ -24,7 +24,7 @@ class DataProcesser:
             ),
             CATEGORIES=Subquery(
                 Categories.objects.filter(
-                    datasets=OuterRef("dataset"), deprecated=False, parent_category=None
+                    datasets=OuterRef("dataset"), deprecated=False, parent=None
                 )
                 .values("id")
                 .annotate(ids=GroupConcat("id"))
@@ -35,11 +35,11 @@ class DataProcesser:
                 Categories.objects.filter(
                     datasets=OuterRef("dataset"),
                     deprecated=False,
-                    parent_category__deprecated=False,
-                    parent_category__parent_category=None,
+                    parent__deprecated=False,
+                    parent__parent=None,
                 )
-                .values("parent_category__id")
-                .annotate(ids=GroupConcat("parent_category__id"))
+                .values("parent__id")
+                .annotate(ids=GroupConcat("parent__id"))
                 .values("ids"),
                 output_field=CharField(),
             ),
@@ -47,12 +47,12 @@ class DataProcesser:
                 Categories.objects.filter(
                     datasets=OuterRef("dataset"),
                     deprecated=False,
-                    parent_category__deprecated=False,
-                    parent_category__parent_category__deprecated=False,
-                    parent_category__parent_category=None,
+                    parent__deprecated=False,
+                    parent__parent__deprecated=False,
+                    parent__parent=None,
                 )
-                .values("parent_category__parent_category__id")
-                .annotate(ids=GroupConcat("parent_category__id"))
+                .values("parent__parent__id")
+                .annotate(ids=GroupConcat("parent__id"))
                 .values("ids"),
                 output_field=CharField(),
             ),
@@ -102,9 +102,7 @@ class DataProcesser:
         return df
 
     def get_categories(self, trained=True):
-        self.categories = Categories.objects.filter(
-            deprecated=False, parent_category=None
-        )
+        self.categories = Categories.objects.filter(deprecated=False, parent=None)
         if trained:
             self.categories = self.categories.exclude(label_index__isnull=True)
         return self.categories.values_list("id", "name")

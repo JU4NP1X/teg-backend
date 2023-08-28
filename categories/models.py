@@ -1,4 +1,6 @@
 from django.db import models
+from mptt.models import MPTTModel, TreeForeignKey
+from mptt.managers import TreeManager
 
 
 class Authorities(models.Model):
@@ -33,41 +35,38 @@ class Authorities(models.Model):
         db_table = "categories_authorities"
 
 
-class Categories(models.Model):
+class Categories(MPTTModel):
     """
     Model representing categories.
     """
 
     name = models.CharField(max_length=200, unique=True)
     link = models.CharField(max_length=200)
-    parent_category = models.ForeignKey(
-        "self", on_delete=models.CASCADE, null=True, blank=True
-    )
-    label_index = models.BigIntegerField(
+    parent = TreeForeignKey(
+        "self",
+        on_delete=models.CASCADE,
         null=True,
+        blank=True,
+        related_name="children",
+        db_index=True,
     )
+    label_index = models.BigIntegerField(null=True)
     deprecated = models.BooleanField(default=False)
     related_categories = models.ManyToManyField("self", blank=True)
     searched_for_datasets = models.BooleanField(default=False)
     authority = models.ForeignKey(Authorities, on_delete=models.CASCADE, default=1)
 
+    level = models.PositiveIntegerField(default=0)
+    lft = models.PositiveIntegerField(default=0)
+    rght = models.PositiveIntegerField(default=0)
+    tree_id = models.PositiveIntegerField(default=0)
+    objects = TreeManager()
+
     def __str__(self):
         return str(self.name)
 
-    def children(self):
-        """
-        Returns the child categories of the current category.
-        """
-        return Categories.objects.filter(parent_category=self)
-
-    def include_descendants(self):
-        """
-        Returns the descendants categories of the current category.
-        """
-        descendants = []
-        for child in self.children():
-            descendants.append(child.include_descendants())
-        return {"name": self.name, "children": descendants}
+    class MPTTMeta:
+        order_insertion_by = ["id"]
 
     class Meta:
         db_table = "categories"
@@ -86,9 +85,7 @@ class Translations(models.Model):
 
     class Meta:
         unique_together = ("language", "name")
+        db_table = "categories_translations"
 
     def __str__(self):
         return str(self.name)
-
-    class Meta:
-        db_table = "categories_translations"
