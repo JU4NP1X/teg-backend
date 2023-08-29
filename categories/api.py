@@ -21,9 +21,10 @@ from datetime import datetime
 from django.conf import settings
 from threading import Lock
 from datetime import datetime, timezone
+from rest_framework import status
 from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -89,7 +90,7 @@ class CategoriesViewSet(viewsets.ModelViewSet):
     Categories of the documents and datasets classification
     """
 
-    queryset = Categories.objects.all()
+    queryset = Categories.objects.filter(parent=None)
     permission_classes = [AllowAny]  # Allow access to anyone to view
     serializer_class = CategoriesSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -166,6 +167,15 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAdminUser()]  # Only allow access to admin users to make changes
         return super().get_permissions()
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.native:
+            return Response(
+                {"detail": "Cannot delete a native authority."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        return super().destroy(request, *args, **kwargs)
 
     def get_queryset(self):
         queryset = super().get_queryset()

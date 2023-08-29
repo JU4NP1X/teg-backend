@@ -7,18 +7,23 @@ from datasets.models import Datasets
 
 class CategoriesSerializer(serializers.ModelSerializer):
     children = serializers.SerializerMethodField()
+    translation = serializers.SerializerMethodField()
 
     class Meta:
         model = Categories
-        exclude = [
-            "lft",
-            "rght",
-        ]
+        exclude = ["lft", "rght", "level", "tree_id"]
 
     def get_children(self, obj):
         children = obj.get_children()
         serializer = self.__class__(children, many=True)
         return serializer.data
+
+    def get_translation(self, obj):
+        translation = Translations.objects.filter(categories=obj, language="es").first()
+        if translation:
+            serializer = TranslationsSerializer(translation)
+            return serializer.data
+        return None
 
 
 class AuthoritySerializer(serializers.ModelSerializer):
@@ -44,10 +49,8 @@ class AuthoritySerializer(serializers.ModelSerializer):
                 .annotate(
                     datasets_count=Coalesce(
                         Datasets.objects.filter(
-                            Q(categories__authority__id=obj.id)
-                            | Q(categories__parent__authority__id=obj.id)
-                            | Q(categories__parent__parent__authority__id=obj.id),
                             categories__deprecated=False,
+                            categories__authority__id=obj.id,
                         )
                         .values("id")
                         .distinct()
@@ -91,17 +94,22 @@ class AuthoritySerializer(serializers.ModelSerializer):
                     representated_category_count=Coalesce(
                         Categories.objects.filter(
                             deprecated=False,
-                            parent__isnull=True,
+                            parent=None,
                             authority__id=obj.id,
                         )
                         .annotate(
                             total_datasets=Coalesce(
-                                Count("datasets")
-                                + Count("parent__datasets")
-                                + Count("parent__parent__datasets"),
+                                Subquery(
+                                    Datasets.objects.filter(
+                                        categories__tree_id=OuterRef("tree_id"),
+                                        categories__deprecated=False,
+                                    )
+                                    .values("categories__tree_id")
+                                    .annotate(count=Count("id", distinct=True))
+                                    .values("count")
+                                ),
                                 0,
-                                output_field=IntegerField(),
-                            )
+                            ),
                         )
                         .filter(total_datasets__gte=10)
                         .count(),
@@ -111,17 +119,22 @@ class AuthoritySerializer(serializers.ModelSerializer):
                     not_representated_category_count=Coalesce(
                         Categories.objects.filter(
                             deprecated=False,
-                            parent__isnull=True,
+                            parent=None,
                             authority__id=obj.id,
                         )
                         .annotate(
                             total_datasets=Coalesce(
-                                Count("datasets")
-                                + Count("parent__datasets")
-                                + Count("parent__parent__datasets"),
+                                Subquery(
+                                    Datasets.objects.filter(
+                                        categories__tree_id=OuterRef("tree_id"),
+                                        categories__deprecated=False,
+                                    )
+                                    .values("categories__tree_id")
+                                    .annotate(count=Count("id", distinct=True))
+                                    .values("count")
+                                ),
                                 0,
-                                output_field=IntegerField(),
-                            )
+                            ),
                         )
                         .filter(total_datasets__lt=10)
                         .count(),
