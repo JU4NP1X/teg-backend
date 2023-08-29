@@ -246,5 +246,7 @@ class TextClassificationViewSet(viewsets.ViewSet):
                 settings.TEXT_CLASSIFIERS[authority_id] = text_classifier
 
             predicted_labels = text_classifier.classify_text(f"{title}: {summary}")
+            serializer = CategoriesSerializer(predicted_labels)
+            serialized_data = serializer.data
 
-        return Response(predicted_labels)
+            return Response(serialized_data)

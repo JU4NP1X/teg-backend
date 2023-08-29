@@ -15,16 +15,42 @@ custom_config = f"--oem 3 --psm 6 -l {os.getenv('TESSERACT_ALPHA3', 'eng')}"
 class DocumentsViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows documents to be viewed or edited.
-
-    Attributes:
-        queryset (QuerySet): The queryset of Documents objects.
-        permission_classes (list): The list of permission classes for the viewset.
-        serializer_class (Serializer): The serializer class for Documents objects.
     """
 
     queryset = Documents.objects.all()
     permission_classes = [permissions.AllowAny]
     serializer_class = DocumentsSerializer
+
+    def get_permissions(self):
+        """
+        Get the permissions required for the current action.
+
+        Returns:
+            list: List of permission classes.
+        """
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [
+                permissions.IsAdminUser()
+            ]  # Only allow access to admin users to make changes
+        return super().get_permissions()
+
+    def perform_create(self, serializer):
+        """
+        Set the created_by field to the current user when creating a new document.
+
+        Args:
+            serializer (Serializer): The serializer instance.
+        """
+        serializer.save(created_by=self.request.user, updated_by=self.request.user)
+
+    def perform_update(self, serializer):
+        """
+        Set the updated_by field to the current user when updating a document.
+
+        Args:
+            serializer (Serializer): The serializer instance.
+        """
+        serializer.save(updated_by=self.request.user)
 
 
 class DocumentsTextExtractorViewSet(viewsets.ViewSet):

@@ -16,13 +16,11 @@ class CategoriesScraper:
         base_url (str): The base URL of the website.
         timeout (int): The timeout for the requests.
         alphabet (str): The alphabet to iterate through.
-        vowels_with_accents (list): The list of vowels with accents.
     """
 
     def __init__(self):
         self.base_url = "https://vocabularies.unesco.org/browser"
         self.alphabet = "ABCDEFGHIJKMNOPQRSTUVWXYZ"
-        self.vowels_with_accents = []
         self.timeout = 15
         self.authority = Authorities.objects.get(name="UNESCO")
 
@@ -38,12 +36,8 @@ class CategoriesScraper:
         for letter in tqdm(self.alphabet, desc="Processing letters"):
             self.get_results(letter)
 
-        # Loop through the vowels with accents and get the results for each vowel
-        for vowel in tqdm(self.vowels_with_accents, desc="Processing vowels"):
-            self.get_results(urllib.parse.quote(vowel))
-
         results_2_detail = Categories.objects.filter(authority=self.authority).exclude(
-            translations__isnull=False
+            # translations__isnull=False
         )
         for result in tqdm(results_2_detail, desc="Getting details"):
             self.get_details(result)

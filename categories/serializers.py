@@ -180,3 +180,6 @@ class TextClassificationSerializer(serializers.Serializer):
 
     title = serializers.CharField(max_length=200)
     summary = serializers.CharField(max_length=1500)
+    authority_id = serializers.PrimaryKeyRelatedField(
+        queryset=Authorities.objects.all(), many=False
+    )

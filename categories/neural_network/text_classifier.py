@@ -92,5 +92,5 @@ class TextClassifier:
         close_indexes = np.where(final_output >= 0.5)[0]
         filtered_categories = Categories.objects.filter(
             label_index__in=list(close_indexes)
-        ).dec
-        return categories_list
+        )
+        return filtered_categories

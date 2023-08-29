@@ -1,39 +1,60 @@
 import base64
 from rest_framework import serializers
+from categories.models import Categories, Translations
+from categories.serializers import TranslationsSerializer
 from .models import Documents
 
 
+class CategoriesSerializer(serializers.ModelSerializer):
+    translation = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Categories
+        exclude = ["lft", "rght", "level", "tree_id"]
+
+    def get_translation(self, obj):
+        translation = Translations.objects.filter(categories=obj, language="es").first()
+        if translation:
+            serializer = TranslationsSerializer(translation)
+            return serializer.data
+        return None
+
+
 class DocumentsSerializer(serializers.ModelSerializer):
-    """
-    Serializer for the Documents model.
+    pdf = serializers.CharField(
+        max_length=None, style={"placeholder": "Enter the base64 of the pdf"}
+    )
+    img = serializers.CharField(
+        max_length=None, style={"placeholder": "Enter the base64 of the img"}
+    )
 
-    Converts instances of the Documents model to JSON and vice versa.
-
-    Attributes:
-        model (Documents): The Documents model to be serialized.
-        fields (str): The fields to include in the serialization.
-        read_only_fields (tuple): The fields that are read-only in the serialization.
-    """
+    categories = serializers.SerializerMethodField()
 
     class Meta:
         model = Documents
         fields = "__all__"
         read_only_fields = ("created_at", "updated_at", "created_by", "updated_by")
 
+    def get_categories(self, obj):
+        categories = obj.categories.all()
+        if categories:
+            serializer = CategoriesSerializer(categories, many=True)
+            return serializer.data
+        return None
+
     def to_representation(self, instance):
-        """
-        Convert the instance to a representation that includes the base64 encoded PDF.
-
-        Args:
-            instance (Documents): The instance to be converted.
-
-        Returns:
-            dict: The representation of the instance.
-        """
         representation = super().to_representation(instance)
-        pdf_base64 = base64.b64encode(instance.pdf.read()).decode("utf-8")
-        representation["pdf"] = pdf_base64
+        representation["pdf"] = None
+        if self.context.get("request") and self.context["request"].path.endswith(
+            f"/{instance.id}/"
+        ):
+            if instance.pdf:
+                pdf_base64 = base64.b64encode(instance.pdf).decode("utf-8")
+                representation["pdf"] = pdf_base64
 
+        if instance.img:
+            img_base64 = base64.b64encode(instance.img).decode("utf-8")
+            representation["img"] = img_base64
         return representation
 
 

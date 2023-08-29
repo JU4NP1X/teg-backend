@@ -24,12 +24,23 @@ class Documents(models.Model):
     summary = models.TextField()
     authors = models.CharField(max_length=255)
     categories = models.ManyToManyField(Categories)
-    pdf = models.BinaryField()
+    pdf = models.BinaryField(
+        blank=True,
+        null=True,
+        default=None,
+    )
+    img = models.BinaryField(
+        blank=True,
+        null=True,
+        default=None,
+    )
     created_by = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="documents_created"
     )
     updated_by = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="documents_updated"
+        User,
+        on_delete=models.CASCADE,
+        related_name="documents_updated",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -54,6 +65,7 @@ class Documents(models.Model):
             **kwargs: Keyword arguments.
         """
         self.convert_pdf_to_binary()
+        self.convert_img_to_binary()
         super().save(*args, **kwargs)
 
     def convert_pdf_to_binary(self):
@@ -79,6 +91,31 @@ class Documents(models.Model):
             # Handle any conversion errors
             raise ValueError(
                 "Error converting PDF field to binary: {}".format(str(error))
+            )
+
+    def convert_img_to_binary(self):
+        """
+        Convert the base64 encoded IMG to binary.
+
+        Raises:
+            ValueError: If there is an error converting the IMG field to binary.
+        """
+        try:
+            # Check if the img field is already binary
+            if not isinstance(self.img, bytes):
+                # Decode the base64 encoded img to bytes
+                img_bytes = base64.b64decode(self.img)
+
+                # Create a ContentFile object from the img bytes
+                content_file = ContentFile(img_bytes)
+
+                # Assign the binary content to the img field
+                self.img = content_file.read()
+
+        except Exception as error:
+            # Handle any conversion errors
+            raise ValueError(
+                "Error converting IMG field to binary: {}".format(str(error))
             )
 
     class Meta:
