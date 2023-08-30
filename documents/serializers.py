@@ -28,14 +28,14 @@ class DocumentsSerializer(serializers.ModelSerializer):
         max_length=None, style={"placeholder": "Enter the base64 of the img"}
     )
 
-    categories = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
 
     class Meta:
         model = Documents
         fields = "__all__"
         read_only_fields = ("created_at", "updated_at", "created_by", "updated_by")
 
-    def get_categories(self, obj):
+    def get_category(self, obj):
         categories = obj.categories.all()
         if categories:
             serializer = CategoriesSerializer(categories, many=True)

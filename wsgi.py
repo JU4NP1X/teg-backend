@@ -1,8 +1,32 @@
-
 import os
-
+import sys
+import psutil
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'settings')
+
+# Aquí puedes agregar tu código de verificación del servicio
+def verify_datasets_syncs():
+    from categories.models import Authorities
+
+    authorities = Authorities.objects.all()
+
+    for authority in authorities:
+        if authority.pid != 0:
+            try:
+                process = psutil.Process(authority.pid)
+                if process.name() != "python":
+                    authority.pid = 0
+                    authority.status = "COMPLETE"
+                    authority.save()
+            except psutil.NoSuchProcess:
+                authority.pid = 0
+                authority.status = "COMPLETE"
+                authority.save()
+
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tu_proyecto.settings")
 
 application = get_wsgi_application()
+
+# Llama a la función de verificación del servicio después de que se inicie la aplicación
+verify_datasets_syncs()

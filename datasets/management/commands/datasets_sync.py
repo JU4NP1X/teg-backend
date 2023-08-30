@@ -1,6 +1,9 @@
 """
 Datasets syncronizer
 """
+import os
+import signal
+import sys
 from django.core.management.base import BaseCommand
 from django.db.models import Count
 from tqdm import tqdm
@@ -41,6 +44,18 @@ class Command(BaseCommand):
             *args: Variable length argument list.
             **options: Keyword arguments.
         """
+
+        def signal_handler(signal, frame):
+            print("\nSynchronization interrupted by user.")
+            # Aquí puedes agregar el código para manejar la interrupción o cerrar adecuadamente
+            Authorities.objects.filter(id=authority.id).update(
+                status="COMPLETE", percentage=0, pid=0
+            )
+            sys.exit(0)
+
+        signal.signal(signal.SIGINT, signal_handler)
+        pid = os.getpid()
+
         universities = options["universities"]
         if not universities:
             universities = DatasetsUniversity.objects.filter(active=True).values_list(
@@ -55,11 +70,11 @@ class Command(BaseCommand):
         if options["reset"]:
             Categories.objects.update(searched_for_datasets=False)
         for authority in tqdm(authorities):
-            if authority.status == "TRAINING" or authority.status == "GETTING_DATA":
+            if authority.status in ("TRAINING", "GETTING_DATA"):
                 continue
-            authority.status = "GETTING_DATA"
-            authority.percentage = 0
-            authority.save()
+            Authorities.objects.filter(id=authority.id).update(
+                status="GETTING_DATA", percentage=0, pid=pid
+            )
 
             categories = (
                 Categories.objects.filter(deprecated=False, searched_for_datasets=False)
@@ -71,20 +86,24 @@ class Command(BaseCommand):
             progress_counter = 0
 
             for categorie in categories_progress:
-                progress_counter += 1
-                authority.percentage = (progress_counter / total_categories) * 100
-                authority.save()
+                Authorities.objects.filter(id=authority.id).update(
+                    status="GETTING_DATA",
+                    percentage=(progress_counter / total_categories) * 100,
+                    pid=pid,
+                )
                 categories_progress.set_description(
                     f"Scraping category '{categorie.name}'"
                 )
                 scraper = DatasetsScraper(categorie, universities)
                 scraper.scrape()
-                categorie.searched_for_datasets = True
-                categorie.save()
+                Categories.objects.filter(id=categorie.id).update(
+                    searched_for_datasets=True
+                )
 
             DatasetsScraper.pass_english_text()
             DatasetsScraper.create_missing_translations()
+            Authorities.objects.filter(id=authority.id).update(
+                status="COMPLETE", percentage=0, pid=0
+            )
 
-            authority.status = "COMPLETE"
-            authority.percentage = 0
-            authority.save()
+        print("Synchronization completed successfully.")

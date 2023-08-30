@@ -7,15 +7,44 @@ from rest_framework.response import Response
 from PIL import Image
 from .models import Documents
 from .serializers import DocumentsSerializer, DocumentsTextExtractorSerializer
+from django_filters import rest_framework as filters
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import SearchFilter, OrderingFilter
+from categories.models import Categories
 
 # Language config
 custom_config = f"--oem 3 --psm 6 -l {os.getenv('TESSERACT_ALPHA3', 'eng')}"
+
+
+class DocumentsFilter(filters.FilterSet):
+    """
+    FilterSet for Categories model.
+
+    Attributes:
+        deprecated (filters.BooleanFilter): Filter for deprecated field.
+        name (filters.CharFilter): Filter for name field.
+        searched_for_datasets (filters.BooleanFilter): Filter for searched_for_datasets field.
+        label_index (filters.NumberFilter): Filter for label_index field.
+        authority (filters.ModelMultipleChoiceFilter): Filter for authority field.
+    """
+
+    class Meta:
+        model = Documents
+        fields = [
+            "title",
+            "summary",
+            "categories",
+        ]
 
 
 class DocumentsViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows documents to be viewed or edited.
     """
+
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    search_fields = ["title"]
+    filterset_class = DocumentsFilter
 
     queryset = Documents.objects.all()
     permission_classes = [permissions.AllowAny]

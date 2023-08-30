@@ -19,12 +19,6 @@ class DatasetsViewSet(viewsets.ModelViewSet):
 
     This ViewSet provides CRUD operations for Datasets.
 
-    Attributes:
-        queryset (QuerySet): The queryset of Datasets objects.
-        filter_backends (list): The list of filter backends to be used.
-        search_fields (list): The list of fields to be searched.
-        permission_classes (list): The list of permission classes.
-        serializer_class (Serializer): The serializer class to be used.
     """
 
     queryset = Datasets.objects.all()

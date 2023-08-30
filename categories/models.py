@@ -17,6 +17,7 @@ class Authorities(models.Model):
 
     name = models.CharField(max_length=200, unique=True)
     color = models.CharField(max_length=7, blank=True)
+    pid = models.PositiveIntegerField(blank=True, default=0)
     percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     theoretical_precision = models.DecimalField(
         max_digits=5, decimal_places=2, default=0
