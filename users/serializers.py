@@ -167,3 +167,15 @@ class UserLoginSerializer(serializers.Serializer):
     password = serializers.CharField(
         min_length=8, max_length=128, write_only=True, style={"input_type": "password"}
     )
+
+
+class UserGoogleLoginSerializer(serializers.Serializer):
+    """
+    Serializer for user login.
+
+    Attributes:
+        username (RegexField): The username field for login.
+        password (CharField): The password field for login.
+    """
+
+    id_token = serializers.CharField(min_length=8, max_length=None)

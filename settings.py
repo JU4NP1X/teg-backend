@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Modules
     "mptt",
+    "google",
     "corsheaders",
     "rest_framework",
     "django_crontab",
@@ -124,6 +125,12 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
+
+
+GOOGLE_AUTH = {
+    "CLIENT_ID": os.environ.get("GOOGLE_CLIENT_ID"),
+    "CLIENT_SECRET": os.environ.get("GOOGLE_CLIENT_SECRET"),
+}
 
 
 # Internationalization

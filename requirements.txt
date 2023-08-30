@@ -139,3 +139,5 @@ wasabi==1.1.2
 webcolors==1.13
 wrapt==1.15.0
 yarl==1.9.2
+google-auth
+google-auth-oauthlib
