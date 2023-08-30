@@ -174,7 +174,7 @@ class CategoriesScraper:
                     Translations.objects.get(language=language, name=name)
                 except Translations.DoesNotExist:
                     Translations.objects.create(
-                        language=language, name=name, categories=result
+                        language=language, name=name, category=result
                     )
 
 

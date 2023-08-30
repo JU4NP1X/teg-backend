@@ -28,6 +28,14 @@ class DocumentsFilter(filters.FilterSet):
         authority (filters.ModelMultipleChoiceFilter): Filter for authority field.
     """
 
+    categories = filters.CharFilter(method="filter_categories")
+
+    def filter_categories(self, queryset, name, value):
+        category_ids = value.split(
+            ","
+        )  # Dividir la cadena en una lista de IDs de categorías
+        return queryset.filter(categories__id__in=category_ids).distinct()
+
     class Meta:
         model = Documents
         fields = [
@@ -86,6 +94,8 @@ class DocumentsTextExtractorViewSet(viewsets.ViewSet):
     """
     Extracts text from images using OCR.
     """
+
+    permission_classes = [permissions.IsAuthenticated]  # Allow access to anyone to view
 
     def get_view_name(self):
         return "Document Images Text Extractor"

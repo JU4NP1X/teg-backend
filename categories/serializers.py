@@ -19,7 +19,7 @@ class CategoriesSerializer(serializers.ModelSerializer):
         return serializer.data
 
     def get_translation(self, obj):
-        translation = Translations.objects.filter(categories=obj, language="es").first()
+        translation = Translations.objects.filter(category=obj, language="es").first()
         if translation:
             serializer = TranslationsSerializer(translation)
             return serializer.data
@@ -182,4 +182,14 @@ class TextClassificationSerializer(serializers.Serializer):
     summary = serializers.CharField(max_length=1500)
     authority_id = serializers.PrimaryKeyRelatedField(
         queryset=Authorities.objects.all(), many=False
+    )
+
+
+class TrainAuthoritySerializer(serializers.Serializer):
+    """
+    Serializer of training authority
+    """
+
+    authorities = serializers.PrimaryKeyRelatedField(
+        queryset=Authorities.objects.all(), many=True
     )

@@ -15,7 +15,7 @@ class GroupConcat(Func):
 
 
 class DataProcesser:
-    def __init__(self):
+    def __init__(self, authority_id):
         self.datasets = DatasetsEnglishTranslations.objects.filter(
             dataset__categories__deprecated=False,
         ).annotate(
@@ -24,35 +24,13 @@ class DataProcesser:
             ),
             CATEGORIES=Subquery(
                 Categories.objects.filter(
-                    datasets=OuterRef("dataset"), deprecated=False, parent=None
+                    datasets=OuterRef("dataset"),
+                    deprecated=False,
+                    authority__id=authority_id,
                 )
+                .get_root_nodes()
                 .values("id")
                 .annotate(ids=GroupConcat("id"))
-                .values("ids"),
-                output_field=CharField(),
-            ),
-            PARENT_CATEGORIES=Subquery(
-                Categories.objects.filter(
-                    datasets=OuterRef("dataset"),
-                    deprecated=False,
-                    parent__deprecated=False,
-                    parent__parent=None,
-                )
-                .values("parent__id")
-                .annotate(ids=GroupConcat("parent__id"))
-                .values("ids"),
-                output_field=CharField(),
-            ),
-            GRAND_PARENT_CATEGORIES=Subquery(
-                Categories.objects.filter(
-                    datasets=OuterRef("dataset"),
-                    deprecated=False,
-                    parent__deprecated=False,
-                    parent__parent__deprecated=False,
-                    parent__parent=None,
-                )
-                .values("parent__parent__id")
-                .annotate(ids=GroupConcat("parent__id"))
                 .values("ids"),
                 output_field=CharField(),
             ),
@@ -60,39 +38,17 @@ class DataProcesser:
         self.mlb = MultiLabelBinarizer()
 
     def get_data(self):
-        df = pd.DataFrame.from_records(
-            self.datasets.values(
-                "CATEGORIES", "CONTEXT", "PARENT_CATEGORIES", "GRAND_PARENT_CATEGORIES"
-            )
-        )
+        df = pd.DataFrame.from_records(self.datasets.values("CATEGORIES", "CONTEXT"))
         df = df.sample(frac=1).reset_index(drop=True)
 
         # Combine the categories, related thesauri, and parent categories into a single column
         df["CATEGORIES"] = df.apply(
             lambda row: list(
-                set(
-                    (row["CATEGORIES"].split(",") if row["CATEGORIES"] else [])
-                    + (
-                        row["PARENT_CATEGORIES"].split(",")
-                        if row["PARENT_CATEGORIES"]
-                        else []
-                    )
-                    + (
-                        row["GRAND_PARENT_CATEGORIES"].split(",")
-                        if row["GRAND_PARENT_CATEGORIES"]
-                        else []
-                    )
-                )
+                set((row["CATEGORIES"].split(",") if row["CATEGORIES"] else []))
             ),
             axis=1,
         )
 
-        # Drop the individual category, related thesauri, and parent categories columns
-        df.drop(
-            ["PARENT_CATEGORIES", "GRAND_PARENT_CATEGORIES"],
-            axis=1,
-            inplace=True,
-        )
         df["CATEGORIES"] = df["CATEGORIES"].apply(
             lambda labels: [int(label_id) for label_id in labels if label_id]
         )

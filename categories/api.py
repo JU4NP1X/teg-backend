@@ -17,6 +17,7 @@ and neural network module.
 """
 
 import os
+import subprocess
 from datetime import datetime
 from django.conf import settings
 from threading import Lock
@@ -35,6 +36,7 @@ from .serializers import (
     TranslationsSerializer,
     AuthoritySerializer,
     TextClassificationSerializer,
+    TrainAuthoritySerializer,
 )
 from django.conf import settings
 
@@ -77,7 +79,10 @@ class TranslationsFilter(filters.FilterSet):
 
     name = filters.CharFilter()
     language = filters.CharFilter()
-    authority = filters.BaseInFilter(field_name="categories__authority__id")
+    authority = filters.BaseInFilter(
+        field_name="category__authority__id",
+        label="Comma separated authority",
+    )
     exclude = filters.BaseInFilter(field_name="id", lookup_expr="in", exclude=True)
 
     class Meta:
@@ -164,8 +169,10 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
         Returns:
             list: List of permission classes.
         """
-        if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAdminUser()]  # Only allow access to admin users to make changes
+        if self.action in ["create", "destroy"]:
+            return [
+                IsAdminUser()
+            ]  # Only allow access to admin users to create or delete
         return super().get_permissions()
 
     def destroy(self, request, *args, **kwargs):
@@ -176,6 +183,39 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
         return super().destroy(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if (
+            instance.native
+            and "name" in request.data
+            and request.data["name"] != instance.name
+        ):
+            return Response(
+                {"detail": "Cannot modify the name of a native authority."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        if instance.status in ("TRAINING", "GETTING_DATA"):
+            return Response(
+                {
+                    "detail": "Cannot modify a authority that is getting data or training."
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if (
+            instance.native
+            and "name" in request.data
+            and request.data["name"] != instance.name
+        ):
+            return Response(
+                {"detail": "Cannot modify the name of a native authority."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        return super().partial_update(request, *args, **kwargs)
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -250,3 +290,37 @@ class TextClassificationViewSet(viewsets.ViewSet):
             serialized_data = serializer.data
 
             return Response(serialized_data)
+
+
+class TrainAuthorityViewSet(viewsets.ViewSet):
+    """
+    Syncronize starter.
+    """
+
+    serializer_class = TrainAuthoritySerializer
+    permission_classes = [IsAdminUser]  # Allow access to anyone to view
+
+    def create(self, request):
+        if request.user.is_superuser:
+            serializer = TrainAuthoritySerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            authorities = serializer.validated_data["authorities"]
+            authorities_ids = [authority.id for authority in authorities]
+            authorities_ids_str = " ".join(str(id) for id in authorities_ids)
+            subprocess.Popen(
+                [
+                    "python",
+                    "./manage.py",
+                    "categories_model_train",
+                    "--authorities",
+                    authorities_ids_str,
+                ]
+            )
+            return Response(
+                {"message": "Action initiated successfully"}, status=status.HTTP_200_OK
+            )
+        else:
+            return Response(
+                {"message": "Only administrators can execute this action"},
+                status=status.HTTP_403_FORBIDDEN,
+            )

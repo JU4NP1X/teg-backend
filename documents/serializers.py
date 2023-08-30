@@ -13,7 +13,7 @@ class CategoriesSerializer(serializers.ModelSerializer):
         exclude = ["lft", "rght", "level", "tree_id"]
 
     def get_translation(self, obj):
-        translation = Translations.objects.filter(categories=obj, language="es").first()
+        translation = Translations.objects.filter(category=obj, language="es").first()
         if translation:
             serializer = TranslationsSerializer(translation)
             return serializer.data

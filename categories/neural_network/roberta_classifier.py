@@ -3,11 +3,10 @@ import shutil
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from transformers import AutoTokenizer
-from categories.models import Categories
+from categories.models import Categories, Authorities
 from categories.neural_network.data_processer import DataProcesser
 from categories.neural_network.data_module import DataModule
 from categories.neural_network.model import CategoriesClassifier
-
 
 BASE_DIR = os.path.dirname(os.path.realpath(__name__))
 
@@ -48,7 +47,7 @@ class Classifier:
         logs_path (str): The path to save the logs.
     """
 
-    def __init__(self, trained=True):
+    def __init__(self, authority_id, trained=True):
         """
         Initializes a new instance of the Classifier class.
 
@@ -58,7 +57,10 @@ class Classifier:
         Returns:
             None
         """
-        self.best_model_path = os.path.join(BASE_DIR, "trained_model")
+        self.authority_id = authority_id
+        self.best_model_path = (
+            f"{os.path.join(BASE_DIR, 'trained_model')}/{self.authority_id }"
+        )
         self.max_len = int(os.environ.get("CATEGORIES_MAX_LEN", 300))
         self.n_epochs = int(os.environ.get("CATEGORIES_EPOCHS", 20))
         self.learning_rate = float(os.environ.get("CATEGORIES_LEARNING_RATE", 1e-07))
@@ -74,12 +76,11 @@ class Classifier:
         create_pretrained_copy(tokenizer_path, self.tokenizer_name)
 
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
-        self.df = DataProcesser()
+        self.df = DataProcesser(self.authority_id)
 
         self.categories = self.df.get_categories(trained)
         categories_names = [label_name for _, label_name in self.categories]
         self.batch_size = int(os.environ.get("CATEGORIES_BATCH_SIZE", 5))
-        print("HOLAAAA", len(categories_names))
 
         self.config = {
             "model_name": self.model_name,
@@ -115,7 +116,13 @@ class Classifier:
             batch_size=self.batch_size,
         )
         data_module.setup()
-        self.config["train_size"] = len(data_module.train_dataloader())
+
+        # Antes de iniciar el entrenamiento, establece el estado de la autoridad en "TRAINING" y el porcentaje en 0
+        authority = Authorities.objects.get(id=self.authority_id)
+        authority.status = "TRAINING"
+        authority.percentage = 0
+        authority.save()
+
         if checkpoint_path is not None and params_path is not None:
             self.model = CategoriesClassifier.load_from_checkpoint(
                 checkpoint_path,
@@ -125,7 +132,7 @@ class Classifier:
             )
         else:
             self.model = CategoriesClassifier(self.config, self.df.weights)
-
+        self.df = None
         checkpoint_callback = ModelCheckpoint(
             save_top_k=1,
             mode="min",
@@ -136,7 +143,10 @@ class Classifier:
         trainer = pl.Trainer(
             max_epochs=self.config["n_epochs"],
             num_sanity_val_steps=1,
-            callbacks=[checkpoint_callback],
+            callbacks=[
+                checkpoint_callback,
+                TrainingProgressCallback(self.authority_id),
+            ],
         )
 
         trainer.fit(self.model, datamodule=data_module, ckpt_path=checkpoint_path)
@@ -156,6 +166,11 @@ class Classifier:
             shutil.rmtree(logs_dir, ignore_errors=True)
             os.makedirs(logs_dir, exist_ok=True)
 
+        # Cuando el entrenamiento haya terminado, establece el porcentaje en 0 y cambia el estado a "COMPLETE"
+        authority.status = "COMPLETE"
+        authority.percentage = 0
+        authority.save()
+
     def save_categories(self):
         """
         Saves the categories.
@@ -170,3 +185,19 @@ class Classifier:
             category.label_index = index
             category.save()
             index += 1
+
+
+class TrainingProgressCallback(pl.Callback):
+    def __init__(self, authority_id):
+        self.authority_id = authority_id
+
+    def on_epoch_end(self, trainer, pl_module):
+        # Calcula el porcentaje de entrenamiento completado
+        current_epoch = trainer.current_epoch
+        total_epochs = trainer.max_epochs
+        percentage = (current_epoch + 1) / total_epochs * 100
+
+        # Actualiza el porcentaje en la base de datos
+        authority = Authorities.objects.get(id=self.authority_id)
+        authority.percentage = percentage
+        authority.save()

@@ -78,7 +78,7 @@ class Translations(models.Model):
     Model representing translations.
     """
 
-    categories = models.ForeignKey(
+    category = models.ForeignKey(
         Categories, related_name="translations", on_delete=models.CASCADE
     )
     language = models.CharField(max_length=2)

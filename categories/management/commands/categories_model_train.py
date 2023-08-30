@@ -1,6 +1,7 @@
 import os
 from django.core.management.base import BaseCommand
 from ...neural_network.roberta_classifier import Classifier
+from categories.models import Authorities
 
 BASE_DIR = os.path.dirname(os.path.realpath(__name__))
 
@@ -14,9 +15,15 @@ class Command(BaseCommand):
             action="store_true",
             help="Load model from pretrained weights",
         )
+        parser.add_argument(
+            "--authorities",
+            nargs="+",
+            type=int,
+            help="List of authority ids",
+        )
 
     def handle(self, *args, **kwargs):
-        text_classifier = Classifier(False)
+        authority_ids = kwargs.get("authorities", [])
         from_checkpoint = kwargs.get("from_pretrained", False)
         best_model_checkpoint = None
         best_model_params = None
@@ -26,5 +33,16 @@ class Command(BaseCommand):
             best_model_checkpoint = f"{checkpoint_path}/checkpoints/model.ckpt"
             best_model_params = f"{checkpoint_path}/hparams.yaml"
 
-        text_classifier.train(best_model_checkpoint, best_model_params)
-        text_classifier.save_categories()
+        for authority_id in authority_ids:
+            authority = Authorities.objects.get(id=authority_id)
+            if authority.status in ("TRAINING", "GETTING_DATA"):
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"Authority {authority_id} is already training or getting data. Skipping..."
+                    )
+                )
+                continue
+
+            text_classifier = Classifier(authority_id, False)
+            text_classifier.train(best_model_checkpoint, best_model_params)
+            text_classifier.save_categories()
