@@ -298,7 +298,7 @@ class TrainAuthorityViewSet(viewsets.ViewSet):
     """
 
     serializer_class = TrainAuthoritySerializer
-    permission_classes = [IsAdminUser]  # Allow access to anyone to view
+    permission_classes = [IsAdminUser]
 
     def create(self, request):
         if request.user.is_superuser:
@@ -306,7 +306,13 @@ class TrainAuthorityViewSet(viewsets.ViewSet):
             serializer.is_valid(raise_exception=True)
             authorities = serializer.validated_data["authorities"]
             authorities_ids = [authority.id for authority in authorities]
+            authorities_without_pid = Authorities.objects.filter(
+                id__in=authorities_ids, pid=0
+            )
+            authorities_without_pid.update(status="GETTING_DATA")
+
             authorities_ids_str = " ".join(str(id) for id in authorities_ids)
+
             subprocess.Popen(
                 [
                     "python",
@@ -322,5 +328,4 @@ class TrainAuthorityViewSet(viewsets.ViewSet):
         else:
             return Response(
                 {"message": "Only administrators can execute this action"},
-                status=status.HTTP_403_FORBIDDEN,
             )

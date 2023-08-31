@@ -70,7 +70,7 @@ class Command(BaseCommand):
         if options["reset"]:
             Categories.objects.update(searched_for_datasets=False)
         for authority in tqdm(authorities):
-            if authority.status in ("TRAINING", "GETTING_DATA"):
+            if authority.pid != 0:
                 continue
             Authorities.objects.filter(id=authority.id).update(
                 status="GETTING_DATA", percentage=0, pid=pid
@@ -86,6 +86,7 @@ class Command(BaseCommand):
             progress_counter = 0
 
             for categorie in categories_progress:
+                progress_counter += 1
                 Authorities.objects.filter(id=authority.id).update(
                     status="GETTING_DATA",
                     percentage=(progress_counter / total_categories) * 100,
