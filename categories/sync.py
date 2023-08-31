@@ -20,7 +20,7 @@ class CategoriesScraper:
 
     def __init__(self):
         self.base_url = "https://vocabularies.unesco.org/browser"
-        self.alphabet = "ABCDEFGHIJKMNOPQRSTUVWXYZ"
+        self.alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         self.timeout = 15
         self.authority = Authorities.objects.get(name="UNESCO")
 

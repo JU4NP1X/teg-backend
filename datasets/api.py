@@ -5,6 +5,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.response import Response
+from categories.models import Authorities
 from .models import Datasets, DatasetsEnglishTranslations
 from .serializers import (
     DatasetsSerializer,
@@ -53,6 +54,11 @@ class DatasetSyncViewSet(viewsets.ViewSet):
             serializer.is_valid(raise_exception=True)
             authorities = serializer.validated_data["authorities"]
             authorities_ids = [authority.id for authority in authorities]
+            authorities_without_pid = Authorities.objects.filter(
+                id__in=authorities_ids, pid=0
+            )
+            authorities_without_pid.update(status="GETTING_DATA")
+
             authorities_ids_str = " ".join(str(id) for id in authorities_ids)
             subprocess.Popen(
                 [
@@ -64,7 +70,8 @@ class DatasetSyncViewSet(viewsets.ViewSet):
                 ]
             )
             return Response(
-                {"message": "Action initiated successfully"}, status=status.HTTP_200_OK
+                {"message": "Action initiated successfully"},
+                status=status.HTTP_200_OK,
             )
         else:
             return Response(

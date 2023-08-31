@@ -11,7 +11,9 @@ def verify_datasets_syncs():
     authorities = Authorities.objects.all()
 
     for authority in authorities:
-        if authority.pid != 0:
+        if authority.pid != 0 or (
+            authority.pid == 0 and authority.status in ("GETTING_DATA", "TAINING")
+        ):
             try:
                 process = psutil.Process(authority.pid)
                 if process.name() != "python":

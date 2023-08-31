@@ -70,7 +70,7 @@ class Command(BaseCommand):
         if options["reset"]:
             Categories.objects.update(searched_for_datasets=False)
         for authority in tqdm(authorities):
-            if authority.status in ("TRAINING", "GETTING_DATA"):
+            if authority.pid != 0:
                 continue
             Authorities.objects.filter(id=authority.id).update(
                 status="GETTING_DATA", percentage=0, pid=pid

@@ -35,7 +35,7 @@ class Command(BaseCommand):
 
         for authority_id in authority_ids:
             authority = Authorities.objects.get(id=authority_id)
-            if authority.status in ("TRAINING", "GETTING_DATA"):
+            if authority.pid != 0:
                 self.stdout.write(
                     self.style.WARNING(
                         f"Authority {authority_id} is already training or getting data. Skipping..."
@@ -43,6 +43,8 @@ class Command(BaseCommand):
                 )
                 continue
 
+            authority.status = "TRAINING"
+            authority.save()
             text_classifier = Classifier(authority_id, False)
             text_classifier.train(best_model_checkpoint, best_model_params)
             text_classifier.save_categories()

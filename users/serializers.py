@@ -3,11 +3,6 @@ from django.contrib.auth.hashers import make_password
 from users.models import User
 
 
-from rest_framework import serializers
-from django.contrib.auth.hashers import make_password
-from users.models import User
-
-
 class UsersSerializer(serializers.ModelSerializer):
     """
     Serializer for the User model.
