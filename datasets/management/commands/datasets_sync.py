@@ -86,6 +86,7 @@ class Command(BaseCommand):
             progress_counter = 0
 
             for categorie in categories_progress:
+                progress_counter += 1
                 Authorities.objects.filter(id=authority.id).update(
                     status="GETTING_DATA",
                     percentage=(progress_counter / total_categories) * 100,
