@@ -73,7 +73,7 @@ This guide will walk you through the steps to set up and launch your Django back
    python manage.py migrate
    ```
 
-1. Create a superuser (admin) account:
+2. Create a superuser (admin) account:
 
    ```shell
    python manage.py createsuperuser
