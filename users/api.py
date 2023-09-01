@@ -1,11 +1,31 @@
 from rest_framework import viewsets
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
-from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.permissions import IsAdminUser, IsAuthenticated, BasePermission
 from rest_framework.response import Response
 from google.auth.transport import requests
 from .models import User
 from .serializers import UsersSerializer, UserLoginSerializer, UserGoogleLoginSerializer
+
+
+class IsSelf(BasePermission):
+    """
+    Custom permission to only allow users to modify themselves.
+    """
+
+    def has_object_permission(self, request, view, obj):
+        """
+        Check if the user is modifying themselves.
+
+        Args:
+            request (Request): The request object.
+            view (View): The view object.
+            obj (User): The user object.
+
+        Returns:
+            bool: True if the user is modifying themselves, False otherwise.
+        """
+        return obj == request.user
 
 
 class UsersViewSet(viewsets.ModelViewSet):
@@ -15,7 +35,7 @@ class UsersViewSet(viewsets.ModelViewSet):
 
     queryset = User.objects.all()
     serializer_class = UsersSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
         """
@@ -25,8 +45,25 @@ class UsersViewSet(viewsets.ModelViewSet):
             list: The list of permission classes.
         """
         if self.action == "update" or self.action == "partial_update":
+            self.permission_classes = [IsAdminUser | IsSelf]
+        elif self.action == "destroy":
+            self.permission_classes = [IsAdminUser]
+        else:
             self.permission_classes = [IsAuthenticated]
         return super().get_permissions()
+
+    def list(self, request, *args, **kwargs):
+        """
+        Get the list of users.
+        Args:
+            request (Request): The request object.
+
+        Returns:
+            Response: The response object containing the list of users.
+        """
+        if not request.user.is_superuser:
+            self.queryset = self.queryset.filter(id=request.user.id)
+        return super().list(request, *args, **kwargs)
 
 
 class LoginViewSet(viewsets.ViewSet):
@@ -50,7 +87,6 @@ class LoginViewSet(viewsets.ViewSet):
         password = request.data.get("password")
         try:
             user = User.objects.get(username=username)
-            print(user.check_password(password))
             if user.check_password(password):
                 token, _ = Token.objects.get_or_create(user=user)
                 serializer = UsersSerializer(user)  # Serialize the user object
