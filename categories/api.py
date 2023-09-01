@@ -39,6 +39,7 @@ from .serializers import (
     TrainAuthoritySerializer,
 )
 from django.conf import settings
+from googletrans import Translator as GoogleTranslator
 
 BASE_DIR = os.path.dirname(os.path.realpath(__name__))
 
@@ -249,7 +250,10 @@ class TextClassificationViewSet(viewsets.ViewSet):
         model_checkpoint = f"{model_path}/{authority_id}/model.ckpt"
 
         if not os.path.exists(model_path) or not os.path.exists(model_checkpoint):
-            return Response("No trained classifier available for this authority")
+            return Response(
+                {"message": "No trained classifier available for this authority"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
         # Check if the lock exists
         if authority_id not in settings.CLASSIFIERS_LOCKS:
@@ -260,7 +264,10 @@ class TextClassificationViewSet(viewsets.ViewSet):
             authority = Authorities.objects.filter(id=authority_id).first()
 
             if not authority.last_training_date:
-                return Response("No trained classifier available for this authority")
+                return Response(
+                    {"message": "No trained classifier available for this authority"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
 
             if authority_id not in settings.TEXT_CLASSIFIERS:
                 text_classifier = settings.TEXT_CLASSIFIERS[
@@ -278,7 +285,11 @@ class TextClassificationViewSet(viewsets.ViewSet):
                 )
                 settings.TEXT_CLASSIFIERS[authority_id] = text_classifier
 
-            predicted_labels = text_classifier.classify_text(f"{title}: {summary}")
+            # Translate the title to English
+            translator = GoogleTranslator()
+            predicted_labels = text_classifier.classify_text(
+                translator.translate(f"{title}: {summary}", dest="en").text
+            )
             serializer = CategoriesSerializer(predicted_labels)
             serialized_data = serializer.data
 
