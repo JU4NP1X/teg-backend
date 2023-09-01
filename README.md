@@ -67,15 +67,13 @@ This guide will walk you through the steps to set up and launch your Django back
 
 ## Configuration
 
-1. Set up the database:
+1. Set up thdatabase:
 
    ```shell
    python manage.py migrate
    ```
 
-````
-
-2. Create a superuser (admin) account:
+1. Create a superuser (admin) account:
 
    ```shell
    python manage.py createsuperuser
@@ -156,4 +154,7 @@ This program is licensed under the **MIT License**.
 ---
 
 Version 1.0, July 2023
-````
+
+```
+
+```
