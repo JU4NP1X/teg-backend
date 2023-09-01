@@ -195,13 +195,6 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
                 {"detail": "Cannot modify the name of a native authority."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-        if instance.status in ("TRAINING", "GETTING_DATA"):
-            return Response(
-                {
-                    "detail": "Cannot modify a authority that is getting data or training."
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
         return super().update(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):

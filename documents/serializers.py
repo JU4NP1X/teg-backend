@@ -1,12 +1,13 @@
 import base64
 from rest_framework import serializers
-from categories.models import Categories, Translations
-from categories.serializers import TranslationsSerializer
+from categories.models import Categories, Translations, Authorities
+from categories.serializers import TranslationsSerializer, AuthoritySerializer
 from .models import Documents
 
 
 class CategoriesSerializer(serializers.ModelSerializer):
     translation = serializers.SerializerMethodField()
+    authority = serializers.SerializerMethodField()
 
     class Meta:
         model = Categories
@@ -18,6 +19,10 @@ class CategoriesSerializer(serializers.ModelSerializer):
             serializer = TranslationsSerializer(translation)
             return serializer.data
         return None
+
+    def get_authority(self, obj):
+        serializer = AuthoritySerializer(obj.authority)
+        return serializer.data
 
 
 class DocumentsSerializer(serializers.ModelSerializer):

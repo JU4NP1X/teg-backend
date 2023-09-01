@@ -8,6 +8,7 @@ from datasets.models import Datasets
 class CategoriesSerializer(serializers.ModelSerializer):
     children = serializers.SerializerMethodField()
     translation = serializers.SerializerMethodField()
+    authority = serializers.SerializerMethodField()
 
     class Meta:
         model = Categories
@@ -24,6 +25,10 @@ class CategoriesSerializer(serializers.ModelSerializer):
             serializer = TranslationsSerializer(translation)
             return serializer.data
         return None
+
+    def get_authority(self, obj):
+        serializer = AuthoritySerializer(obj.authority)
+        return serializer.data
 
 
 class AuthoritySerializer(serializers.ModelSerializer):
@@ -163,10 +168,16 @@ class TranslationsSerializer(serializers.ModelSerializer):
         Meta (class): The metadata class for the serializer.
     """
 
+    authority = serializers.SerializerMethodField()
+
     class Meta:
         model = Translations
         fields = "__all__"
         read_only_fields = ("created_at",)
+
+    def get_authority(self, obj):
+        serializer = AuthoritySerializer(obj.category.authority)
+        return serializer.data
 
 
 class TextClassificationSerializer(serializers.Serializer):
