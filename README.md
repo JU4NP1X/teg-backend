@@ -57,9 +57,9 @@ This guide will walk you through the steps to set up and launch your Django back
 
       Once the installation is complete, you can verify if Tesseract was installed successfully by opening a command prompt window and running the following command:
 
-          ```shell
-          tesseract --version
-          ```
+      ```shell
+      tesseract --version
+      ```
 
     - Other operating systems:
 
