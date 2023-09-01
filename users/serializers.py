@@ -94,8 +94,8 @@ class UsersSerializer(serializers.ModelSerializer):
         """
         password = validated_data.pop("password")
         is_admin = validated_data.pop("is_admin", False)
-        validated_data["password"] = make_password(password)
         user = User.objects.create_user(**validated_data)
+        user.set_password(password)
         user.is_superuser = is_admin
         user.save()
         return user
@@ -127,12 +127,12 @@ class UsersSerializer(serializers.ModelSerializer):
         """
         password = validated_data.pop("password", None)
         is_admin = validated_data.pop("is_admin", None)
-        if password:
-            validated_data["password"] = make_password(password)
         user = super().update(instance, validated_data)
+        if password:
+            user.set_password(password)
         if is_admin is not None:
             user.is_superuser = is_admin
-            user.save()
+        user.save()
         return user
 
     def partial_update(self, instance, validated_data):

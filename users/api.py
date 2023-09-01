@@ -48,19 +48,19 @@ class LoginViewSet(viewsets.ViewSet):
         """
         username = request.data.get("username")
         password = request.data.get("password")
-        user = authenticate(
-            request,
-            username=username,
-            password=password,
-        )
-        if user is not None:
-            token, _ = Token.objects.get_or_create(user=user)
-            serializer = UsersSerializer(user)  # Serialize the user object
-            data = serializer.data
-            data["token"] = token.key  # Add the token to the response data
-            return Response(data)
-        else:
-            return Response({"error": "Invalid credentials"}, status=400)
+        try:
+            user = User.objects.get(username=username)
+            print(user.check_password(password))
+            if user.check_password(password):
+                token, _ = Token.objects.get_or_create(user=user)
+                serializer = UsersSerializer(user)  # Serialize the user object
+                data = serializer.data
+                data["token"] = token.key  # Add the token to the response data
+                return Response(data)
+        except User.DoesNotExist:
+            pass
+
+        return Response({"error": "Invalid credentials"}, status=400)
 
 
 class GoogleLoginViewSet(viewsets.ViewSet):
