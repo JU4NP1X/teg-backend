@@ -7,12 +7,13 @@ from tqdm import tqdm
 from googletrans import Translator as GoogleTranslator
 from django.db.models import Q
 from categories.models import Categories
+from bs4 import BeautifulSoup
 from .models import Datasets, DatasetsEnglishTranslations, DatasetsUniversity
 
 requests.packages.urllib3.disable_warnings()
 
 
-class DatasetsScraper:
+class OneSearchScraper:
     """
     Class for scraping datasets based on category and universities.
 
@@ -176,8 +177,8 @@ class DatasetsScraper:
             try:
                 translation = DatasetsEnglishTranslations(
                     dataset=dataset,
-                    paper_name=DatasetsScraper.translate_text(dataset.paper_name),
-                    summary=DatasetsScraper.translate_text(dataset.summary),
+                    paper_name=OneSearchScraper.translate_text(dataset.paper_name),
+                    summary=OneSearchScraper.translate_text(dataset.summary),
                 )
                 if translation.paper_name != "" and dataset.summary != "":
                     translation.save()
@@ -233,3 +234,38 @@ class DatasetsScraper:
         else:
             translated_text = title
         return translated_text
+
+
+class GoogleScholarScraper:
+    def __init__(self):
+        self.base_url = "https://scholar.google.com"
+
+    def search(self, query):
+        search_url = f"{self.base_url}/scholar?q={query}"
+        response = requests.get(search_url)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.content, "html.parser")
+        result_links = soup.select(".gs_rt a")
+
+        for link in result_links:
+            url = link["href"]
+            title, meta_description = self.get_page_info(url)
+
+            print("Title:", title)
+            print("Meta Description:", meta_description)
+            print("URL:", url)
+            print()
+
+    def get_page_info(self, url):
+        response = requests.get(url)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.content, "html.parser")
+        title_tag = soup.find("title")
+        meta_tag = soup.find("meta", attrs={"name": "description"})
+
+        title = title_tag.text if title_tag else ""
+        meta_description = meta_tag["content"] if meta_tag else ""
+
+        return title, meta_description

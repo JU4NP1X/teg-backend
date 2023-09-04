@@ -55,6 +55,7 @@ class TextClassifier:
             hparams_file=self.best_model_params,
             pos_weights=np.ones(len(self.categories)),
         )
+        self.model.eval()
 
     def classify_text(self, text):
         """
@@ -66,7 +67,6 @@ class TextClassifier:
         Returns:
             list: A list of categories that the text belongs to.
         """
-        self.model.eval()
 
         categories_names = [label_name for _, label_name in self.categories]
         # Crear el dataframe

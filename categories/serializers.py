@@ -12,7 +12,7 @@ class CategoriesSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Categories
-        exclude = ["lft", "rght", "level", "tree_id"]
+        exclude = ["lft", "rght", "level"]
 
     def get_children(self, obj):
         children = obj.get_children()

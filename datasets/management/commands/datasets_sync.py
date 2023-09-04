@@ -9,7 +9,7 @@ from django.db.models import Count
 from tqdm import tqdm
 from categories.models import Authorities, Categories
 from ...models import DatasetsUniversity
-from ...sync import DatasetsScraper
+from ...sync import OneSearchScraper
 
 
 class Command(BaseCommand):
@@ -78,8 +78,8 @@ class Command(BaseCommand):
 
             categories = (
                 Categories.objects.filter(deprecated=False, searched_for_datasets=False)
-                .annotate(cuenta=Count("datasets"))
-                .filter(cuenta__lt=10, authority__id=authority.id)
+                .annotate(data_count=Count("datasets"))
+                .filter(data_count__lt=10, authority__id=authority.id)
             )
             total_categories = len(categories)
             categories_progress = tqdm(categories)
@@ -95,14 +95,14 @@ class Command(BaseCommand):
                 categories_progress.set_description(
                     f"Scraping category '{categorie.name}'"
                 )
-                scraper = DatasetsScraper(categorie, universities)
+                scraper = OneSearchScraper(categorie, universities)
                 scraper.scrape()
                 Categories.objects.filter(id=categorie.id).update(
                     searched_for_datasets=True
                 )
 
-            DatasetsScraper.pass_english_text()
-            DatasetsScraper.create_missing_translations()
+            OneSearchScraper.pass_english_text()
+            OneSearchScraper.create_missing_translations()
             Authorities.objects.filter(id=authority.id).update(
                 status="COMPLETE", percentage=0, pid=0
             )

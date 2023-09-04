@@ -1,5 +1,4 @@
 import requests
-import urllib.parse
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 from django.db.models import Q
@@ -36,23 +35,29 @@ class CategoriesScraper:
         for letter in tqdm(self.alphabet, desc="Processing letters"):
             self.get_results(letter)
 
-        results_2_detail = Categories.objects.filter(authority=self.authority).exclude(
-            # translations__isnull=False
+        results_2_detail = (
+            Categories.objects.filter(authority=self.authority)
+            .exclude(translations__isnull=False)
+            .exclude(link="")
         )
         for result in tqdm(results_2_detail, desc="Getting details"):
             self.get_details(result)
 
-            # Break the relationship between deprecated categories and their children
-
+        # Break the relationship between deprecated categories and their children
         deprecated_categories = Categories.objects.filter(
             Q(parent__isnull=False) | Q(children__isnull=False),
             deprecated=True,
         )
         for category in deprecated_categories:
-            category.children.clear()
-            category.parent = None
-            category.level = 0  # Establecer un nivel válido para la categoría
-            category.save()
+            descendants = Categories.objects.filter(parent__id=category.id)
+            current_category = Categories.objects.get(id=category.id)
+            for descendant in descendants:
+                current_descendant = Categories.objects.get(id=descendant.id)
+                current_descendant.move_to(current_category.parent, "last-child")
+                current_descendant.save()
+            current_category = Categories.objects.get(id=category.id)
+            current_category.move_to(None, "first-child")
+            current_category.save()
 
     def get_results(self, letter):
         """
@@ -89,12 +94,20 @@ class CategoriesScraper:
                     link = a["href"]
                     name = a.text.strip()
                     category, _ = Categories.objects.update_or_create(
-                        name=name, authority=self.authority, defaults={"link": link}
+                        name=name,
+                        authority=self.authority,
+                        deprecated=False,
+                        defaults={"link": link},
                     )
                     replaced = li.find("span")
                     if replaced:
-                        category.deprecated = True
-                        category.save()
+                        name = replaced.text.strip()
+                        Categories.objects.update_or_create(
+                            name=replaced.text.strip(),
+                            authority=self.authority,
+                            deprecated=True,
+                        )
+                    category.save()
 
             # Increment the offset and get the next page of results
             offset += 250
@@ -117,6 +130,8 @@ class CategoriesScraper:
             result (Categories): The result to get the details for.
         """
         link = result.link
+        if link == "":
+            return
         if link and link[0] == "/":
             link = link[1:]
 
@@ -161,7 +176,10 @@ class CategoriesScraper:
                         defaults={"link": link},
                     )
                     if (not parent.deprecated) and (not result.deprecated):
-                        result.parent = parent
+                        if result.parent and result.parent.name != parent.name:
+                            result.move_to(parent, "last-child")
+                        elif not result.parent:
+                            result.parent = parent
                         result.save()
 
         # Find the translations in other languages

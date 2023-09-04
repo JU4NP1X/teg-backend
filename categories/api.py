@@ -18,17 +18,16 @@ and neural network module.
 
 import os
 import subprocess
-from datetime import datetime
-from django.conf import settings
-from threading import Lock
 from datetime import datetime, timezone
-from rest_framework import status
+from threading import Lock
+from django.conf import settings
 from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets, status
+from googletrans import Translator as GoogleTranslator
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework import viewsets, status
 from .neural_network.text_classifier import TextClassifier
 from .models import Categories, Translations, Authorities
 from .serializers import (
@@ -38,8 +37,7 @@ from .serializers import (
     TextClassificationSerializer,
     TrainAuthoritySerializer,
 )
-from django.conf import settings
-from googletrans import Translator as GoogleTranslator
+
 
 BASE_DIR = os.path.dirname(os.path.realpath(__name__))
 
@@ -60,6 +58,7 @@ class CategoriesFilter(filters.FilterSet):
     name = filters.CharFilter()
     searched_for_datasets = filters.BooleanFilter()
     label_index = filters.NumberFilter()
+    tree_id = filters.NumberFilter()
     authority = filters.ModelMultipleChoiceFilter(queryset=Authorities.objects.all())
 
     class Meta:
@@ -70,6 +69,7 @@ class CategoriesFilter(filters.FilterSet):
             "searched_for_datasets",
             "authority",
             "label_index",
+            "tree_id",
         ]
 
 

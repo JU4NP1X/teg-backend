@@ -1,12 +1,12 @@
 from django.core.management.base import BaseCommand
-from ...sync import DatasetsScraper
+from ...sync import OneSearchScraper
 
 
 class Command(BaseCommand):
     """
     Django management command for translating categories.
 
-    This command translates the categories using the DatasetsScraper class.
+    This command translates the categories using the OneSearchScraper class.
     """
 
     help = "This is the translator of the categories."
@@ -15,7 +15,7 @@ class Command(BaseCommand):
         """
         Handle method for the management command.
 
-        This method calls the pass_english_text() and create_missing_translations() methods of the DatasetsScraper class.
+        This method calls the pass_english_text() and create_missing_translations() methods of the OneSearchScraper class.
         """
-        DatasetsScraper.pass_english_text()
-        DatasetsScraper.create_missing_translations()
+        OneSearchScraper.pass_english_text()
+        OneSearchScraper.create_missing_translations()
