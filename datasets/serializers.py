@@ -59,17 +59,18 @@ class DatasetsEnglishTranslationsSerializer(serializers.ModelSerializer):
         read_only_fields = ("created_at",)
 
     def get_categories(self, obj):
-        serializer = CategoriesSerializer(
-            Categories.objects.filter(
-                parent=None,
-                deprecated=False,
-                tree_id__in=obj.dataset.categories.values("tree_id").distinct(),
-            ).all(),
-            many=True,
+        queryset = Categories.objects.filter(
+            parent=None,
+            deprecated=False,
+            tree_id__in=obj.dataset.categories.values("tree_id").distinct(),
         )
-        return serializer.data
 
-    categories = serializers.SerializerMethodField()
+        authority = self.context.get("authority")
+        if authority:
+            queryset = queryset.filter(authority__id=authority)
+
+        serializer = CategoriesSerializer(queryset.all(), many=True)
+        return serializer.data
 
 
 class DatasetSyncSerializer(serializers.Serializer):

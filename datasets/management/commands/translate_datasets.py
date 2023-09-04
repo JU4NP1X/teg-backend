@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from ...sync import OneSearchScraper
+from ...sync import CreateMissingTranslations
 
 
 class Command(BaseCommand):
@@ -17,5 +17,5 @@ class Command(BaseCommand):
 
         This method calls the pass_english_text() and create_missing_translations() methods of the OneSearchScraper class.
         """
-        OneSearchScraper.pass_english_text()
-        OneSearchScraper.create_missing_translations()
+        CreateMissingTranslations.pass_english_text()
+        CreateMissingTranslations.translate_all()

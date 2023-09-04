@@ -25,7 +25,7 @@ class IsSelf(BasePermission):
         Returns:
             bool: True if the user is modifying themselves, False otherwise.
         """
-        return obj == request.user
+        return obj.id == request.user.id
 
 
 class UsersViewSet(viewsets.ModelViewSet):

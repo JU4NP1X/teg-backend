@@ -1,6 +1,8 @@
 """
 Class for scraping datasets based on category and universities.
 """
+import re
+import time
 import requests
 from langdetect import detect
 from tqdm import tqdm
@@ -165,8 +167,96 @@ class OneSearchScraper:
                 except Exception as e:
                     print(f"Error getting data: {e}")
 
+
+import requests
+from bs4 import BeautifulSoup
+
+
+class GoogleScholarScraper:
+    def __init__(self):
+        self.current_university = DatasetsUniversity.objects.filter(
+            name="google_scholar"
+        ).first()
+        self.headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Referer": "https://scholar.google.com/",
+            "Connection": "keep-alive",
+        }
+
+    def search_and_save_datasets(self, category):
+        page = 0
+        count = 0  # Counter for the number of datasets found
+        query = category.name
+
+        while count < 20:
+            if page == 0:
+                search_url = f"{self.current_university.url}/scholar?q={query}"
+            else:
+                search_url = (
+                    f"{self.current_university.url}/scholar?q={query}&start={page * 10}"
+                )
+
+            response = requests.get(
+                search_url, headers=self.headers, timeout=40, verify=False
+            )
+            response.raise_for_status()
+
+            soup = BeautifulSoup(response.content, "html.parser")
+            result_links = soup.select(".gs_rt a")
+
+            for link in result_links:
+                if count >= 20:
+                    break
+
+                url = link["href"]
+                try:
+                    title, meta_description = self.get_page_info(url)
+                    title = self.clean_data(title)
+                    meta_description = self.clean_data(meta_description)
+                    if len(meta_description) >= 250:
+                        dataset = Datasets.objects.filter(paper_name=title).first()
+
+                        if not dataset and len(title) <= 250:
+                            dataset = Datasets.objects.create(
+                                paper_name=title,
+                                summary=meta_description,
+                                university=self.current_university,
+                            )
+                        if dataset:
+                            dataset.save()
+                            existing_categories = dataset.categories.all()
+                            if category not in existing_categories:
+                                dataset.categories.add(category)
+                            count += 1
+                except Exception:
+                    print(f"Error retrieving page info for URL: {url}")
+
+            page += 1
+            time.sleep(2)
+
+    def get_page_info(self, url):
+        response = requests.get(url, headers=self.headers, timeout=40, verify=False)
+
+        soup = BeautifulSoup(response.content, "html.parser")
+        title_tag = soup.find("title")
+        meta_tag = soup.find("meta", attrs={"name": "description"})
+
+        title = title_tag.text if title_tag else ""
+        meta_description = meta_tag["content"] if meta_tag else ""
+
+        return title, meta_description
+
+    def clean_data(self, data):
+        # Remove invisible characters except spaces and tabs
+        cleaned_data = re.sub(r"[^\S\r\n\t ]", "", data)
+        return cleaned_data
+
+
+class CreateMissingTranslations:
     @staticmethod
-    def create_missing_translations():
+    def translate_all():
         """
         Create missing translations for datasets.
 
@@ -177,8 +267,10 @@ class OneSearchScraper:
             try:
                 translation = DatasetsEnglishTranslations(
                     dataset=dataset,
-                    paper_name=OneSearchScraper.translate_text(dataset.paper_name),
-                    summary=OneSearchScraper.translate_text(dataset.summary),
+                    paper_name=CreateMissingTranslations.translate_text(
+                        dataset.paper_name
+                    ),
+                    summary=CreateMissingTranslations.translate_text(dataset.summary),
                 )
                 if translation.paper_name != "" and dataset.summary != "":
                     translation.save()
@@ -234,38 +326,3 @@ class OneSearchScraper:
         else:
             translated_text = title
         return translated_text
-
-
-class GoogleScholarScraper:
-    def __init__(self):
-        self.base_url = "https://scholar.google.com"
-
-    def search(self, query):
-        search_url = f"{self.base_url}/scholar?q={query}"
-        response = requests.get(search_url)
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.content, "html.parser")
-        result_links = soup.select(".gs_rt a")
-
-        for link in result_links:
-            url = link["href"]
-            title, meta_description = self.get_page_info(url)
-
-            print("Title:", title)
-            print("Meta Description:", meta_description)
-            print("URL:", url)
-            print()
-
-    def get_page_info(self, url):
-        response = requests.get(url)
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.content, "html.parser")
-        title_tag = soup.find("title")
-        meta_tag = soup.find("meta", attrs={"name": "description"})
-
-        title = title_tag.text if title_tag else ""
-        meta_description = meta_tag["content"] if meta_tag else ""
-
-        return title, meta_description

@@ -1,6 +1,7 @@
 import subprocess
 from rest_framework import viewsets
 from rest_framework.permissions import IsAdminUser
+from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from rest_framework.filters import SearchFilter, OrderingFilter
@@ -14,6 +15,23 @@ from .serializers import (
 )
 
 
+class DatasetTranslationFilter(filters.FilterSet):
+    """
+    FilterSet for Categories model.
+    """
+
+    paper_name = filters.CharFilter()
+
+    authority = filters.CharFilter(method="filter_authority", field_name="authority")
+
+    def filter_authority(self, queryset, name, value):
+        return queryset.filter(dataset__categories__authority__id=value).distinct()
+
+    class Meta:
+        model = DatasetsEnglishTranslations
+        fields = ["paper_name", "authority"]
+
+
 class DatasetsViewSet(viewsets.ModelViewSet):
     """
     ViewSet for Datasets.
@@ -22,7 +40,7 @@ class DatasetsViewSet(viewsets.ModelViewSet):
 
     """
 
-    queryset = Datasets.objects.all()
+    queryset = Datasets.objects.all().distinct()
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ["paper_name"]
     permission_classes = [IsAdminUser]  # Only allow access to admin users
@@ -39,6 +57,12 @@ class DatasetsEnglishTranslationsViewSet(viewsets.ModelViewSet):
     search_fields = ["paper_name"]
     permission_classes = [IsAdminUser]  # Only allow access to admin users
     serializer_class = DatasetsEnglishTranslationsSerializer
+    filterset_class = DatasetTranslationFilter
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["authority"] = self.request.query_params.get("authority")
+        return context
 
 
 class DatasetSyncViewSet(viewsets.ViewSet):

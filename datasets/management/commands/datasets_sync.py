@@ -9,7 +9,7 @@ from django.db.models import Count
 from tqdm import tqdm
 from categories.models import Authorities, Categories
 from ...models import DatasetsUniversity
-from ...sync import OneSearchScraper
+from ...sync import OneSearchScraper, CreateMissingTranslations, GoogleScholarScraper
 
 
 class Command(BaseCommand):
@@ -58,8 +58,10 @@ class Command(BaseCommand):
 
         universities = options["universities"]
         if not universities:
-            universities = DatasetsUniversity.objects.filter(active=True).values_list(
-                "name", flat=True
+            universities = (
+                DatasetsUniversity.objects.filter(active=True)
+                .exclude(name="google_scholar")
+                .values_list("name", flat=True)
             )
 
         authorities = options["authorities"]
@@ -85,24 +87,53 @@ class Command(BaseCommand):
             categories_progress = tqdm(categories)
             progress_counter = 0
 
-            for categorie in categories_progress:
+            for category in categories_progress:
                 progress_counter += 1
                 Authorities.objects.filter(id=authority.id).update(
                     status="GETTING_DATA",
-                    percentage=(progress_counter / total_categories) * 100,
+                    percentage=(progress_counter / total_categories) * 100 * 0.8,
                     pid=pid,
                 )
                 categories_progress.set_description(
-                    f"Scraping category '{categorie.name}'"
+                    f"Scraping category '{category.name}'"
                 )
-                scraper = OneSearchScraper(categorie, universities)
+                scraper = OneSearchScraper(category, universities)
                 scraper.scrape()
-                Categories.objects.filter(id=categorie.id).update(
+                Categories.objects.filter(id=category.id).update(
                     searched_for_datasets=True
                 )
 
-            OneSearchScraper.pass_english_text()
-            OneSearchScraper.create_missing_translations()
+            categories = (
+                Categories.objects.filter(deprecated=False, searched_for_datasets=True)
+                .annotate(data_count=Count("datasets"))
+                .filter(data_count__lt=10, authority__id=authority.id)
+            )
+
+            total_categories_google = len(categories)
+            categories_progress = tqdm(categories)
+            progress_counter_google = 0
+
+            scraper = GoogleScholarScraper()
+            for category in categories_progress:
+                progress_counter_google += 1
+                Authorities.objects.filter(id=authority.id).update(
+                    status="GETTING_DATA",
+                    percentage=(
+                        (progress_counter / total_categories) * 0.8
+                        + (progress_counter_google / total_categories_google) * 0.2
+                    )
+                    * 100,
+                    pid=pid,
+                )
+
+                categories_progress.set_description(
+                    f"Scraping category '{category.name}'"
+                )
+                scraper.search_and_save_datasets(category)
+
+            CreateMissingTranslations.pass_english_text()
+            CreateMissingTranslations.translate_all()
+
             Authorities.objects.filter(id=authority.id).update(
                 status="COMPLETE", percentage=0, pid=0
             )
