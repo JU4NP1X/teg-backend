@@ -11,6 +11,22 @@ def execute_query(query):
         cursor.execute(query)
 
 
+def categories_tree_adjust():
+    query = """
+        UPDATE categories AS ca
+        SET tree_id = ca2.tree_id, "level" = ca2.level + 1
+        FROM categories AS ca2
+        WHERE ca2.tree_id <> ca.tree_id AND ca2.id = ca.parent_id
+    """
+
+    # Tree correction (there is a bug, that the move_to not update the tree of it chindrens)
+    while True:
+        execute_query(query)
+        rows_affected = connection.cursor().rowcount
+        if rows_affected == 0:
+            break
+
+
 requests.packages.urllib3.disable_warnings()
 
 
@@ -64,19 +80,7 @@ class CategoriesScraper:
             current_category.move_to(None, position="right")
             current_category.save()
 
-        query = """
-            UPDATE categories AS ca
-            SET tree_id = ca2.tree_id, "level" = ca2.level + 1
-            FROM categories AS ca2
-            WHERE ca2.tree_id <> ca.tree_id AND ca2.id = ca.parent_id
-        """
-
-        # Tree correction (there is a bug, that the move_to not update the tree of it chindrens)
-        while True:
-            execute_query(query)
-            rows_affected = connection.cursor().rowcount
-            if rows_affected == 0:
-                break
+        categories_tree_adjust()
 
     def get_results(self, letter):
         """

@@ -39,6 +39,7 @@ from .serializers import (
     TextClassificationSerializer,
     TrainAuthoritySerializer,
 )
+from .sync import categories_tree_adjust
 
 
 BASE_DIR = os.path.dirname(os.path.realpath(__name__))
@@ -67,7 +68,7 @@ def has_invalid_relation(data):
             return True  # Relación circular encontrada
 
         # Verificar si el padre del elemento existe en los datos
-        if parent_id not in [row["id"] for row in data]:
+        if parent_id and parent_id not in [row["id"] for row in data]:
             return True  # Relación inválida
 
         # Verificar si hay una cadena de padres que forma una relación circular
@@ -78,6 +79,42 @@ def has_invalid_relation(data):
             current_parent = parents.get(current_parent, "")
 
     return False  # No se encontró una relación circular
+
+
+def create_categories(authority_name, data):
+    """
+    Crear un diccionario para almacenar los padres de cada elemento
+    """
+    authority = Authorities.objects.filter(name=authority_name).first()
+    Categories.objects.filter(authority=authority).update(deprecated=True)
+    # Recorrer los datos y almacenar los padres de cada elemento
+    for row in data:
+        print(row)
+        name = row["nombre_en"]
+        name_es = row["nombre_es"]
+        category, created = Categories.objects.update_or_create(
+            name=name, authority=authority, deprecated=False
+        )
+        Translations.objects.update_or_create(
+            category=category, name=name_es, language="es"
+        )
+
+    for row in data:
+        name = row["nombre_en"]
+        parent_id = row["parent"]  # Obtén el ID del padre desde los datos
+        category = Categories.objects.filter(name=name, authority=authority).first()
+        parent_name = None
+        for parent_row in data:
+            if parent_row["id"] == parent_id:
+                parent_name = parent_row["nombre_en"]
+                break
+        parent = Categories.objects.filter(
+            name=parent_name, authority=authority
+        ).first()  # Busca el padre por su nombre en la base de datos
+        if category and parent:
+            category.move_to(parent)
+
+    categories_tree_adjust()
 
 
 class CategoriesFilter(filters.FilterSet):
@@ -223,9 +260,48 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
             )
         return super().destroy(request, *args, **kwargs)
 
+    def create(self, request, *args, **kwargs):
+        csv_base64 = request.data["csv_base64"]
+        exist = Authorities.objects.filter(name=request.data["name"])
+
+        if exist:
+            return Response(
+                {"message": "The authority already exist."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            csv_data = base64.b64decode(csv_base64).decode("utf-8")
+            csv_reader = csv.DictReader(csv_data.splitlines())
+            csv_data_list = list(csv_reader)
+
+            if has_invalid_relation(csv_data_list):
+                return Response(
+                    {"message": "Circular relationship detected in the CSV data."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            response = super().create(request, *args, **kwargs)
+            create_categories(request.data["name"], csv_data_list)
+
+            return response
+
+        except Exception as e:
+            print(e)
+            Authorities.objects.filter(name=request.data["name"]).delete()
+
+            return Response(
+                {
+                    "message": "Invalid CSV format. Unable to decode base64 or parse CSV."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        csv_base64 = request.data["csv_base64"]
+        csv_base64 = None
+        if "csv_base64" in request.data:
+            csv_base64 = request.data["csv_base64"]
         if (
             instance.native
             and "name" in request.data
@@ -260,7 +336,10 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
 
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
-        csv_base64 = request.data["csv_base64"]
+        csv_base64 = None
+        if "csv_base64" in request.data:
+            csv_base64 = request.data["csv_base64"]
+
         if (
             instance.native
             and "name" in request.data

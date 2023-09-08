@@ -41,7 +41,8 @@ class Categories(MPTTModel):
     Model representing categories.
     """
 
-    name = models.CharField(max_length=200, unique=True)
+    name = models.CharField(max_length=200)
+    authority = models.ForeignKey(Authorities, on_delete=models.CASCADE, default=1)
     link = models.CharField(max_length=200)
     parent = TreeForeignKey(
         "self",
@@ -55,7 +56,6 @@ class Categories(MPTTModel):
     deprecated = models.BooleanField(default=False)
     related_categories = models.ManyToManyField("self", blank=True)
     searched_for_datasets = models.BooleanField(default=False)
-    authority = models.ForeignKey(Authorities, on_delete=models.CASCADE, default=1)
 
     level = models.PositiveIntegerField(default=0)
     lft = models.PositiveIntegerField(default=0)
@@ -68,6 +68,7 @@ class Categories(MPTTModel):
 
     class MPTTMeta:
         order_insertion_by = ["id"]
+        unique_together = (("name", "authority"),)
 
     class Meta:
         db_table = "categories"
@@ -85,7 +86,7 @@ class Translations(models.Model):
     name = models.CharField(max_length=200)
 
     class Meta:
-        unique_together = ("language", "name")
+        unique_together = ("language", "category")
         db_table = "categories_translations"
 
     def __str__(self):

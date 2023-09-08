@@ -1,4 +1,6 @@
-# VoCo UC Backend Setup
+# Backend for Controlled Vocabulary Administration
+
+This backend project is a graduation project for the University of Carabobo, intended to be used by the virtual library of the university. It is designed to manage the controlled vocabulary of the library using self-trained neural networks. The system allows you to register authority lists, similar to thesauri used by organizations like UNESCO, which provide categories. These categories can be registered on the website and are used for document classification.
 
 This guide will walk you through the steps to set up and launch your Django backend.
 
@@ -21,13 +23,19 @@ This guide will walk you through the steps to set up and launch your Django back
     source myenv/bin/activate
     ```
 
-3.  Install the required packages:
+3.  Install postgress drivers:
+
+    ```shell
+    sudo apt install libpq-dev
+    ```
+
+4.  Install the required packages:
 
     ```shell
     pip install -r requirements.txt
     ```
 
-4.  Install Tesseract OCR:
+5.  Install Tesseract OCR:
 
     - Ubuntu:
 
@@ -109,6 +117,9 @@ The server will start running at `http://localhost:8000/`.
   ***
 
 - `/categories/`: GET - List all endpoints related to categories.
+- `/categories/authorities/`: GET, POST - List all authorities or create a new authority.
+- `/categories/authorities/<id>/`: GET, PUT, DELETE - Retrieve, update, or delete a specific authority.
+- `/categories/train`: POST - Train an specific Authority.
 - `/categories/list/`: GET, POST - List all category or create a new category.
 - `/categories/list/<id>/`: GET, PUT, DELETE - Retrieve, update, or delete a specific category.
 - `/categories/tranlations/`: GET, POST - List all translated categories or create a new translated category.

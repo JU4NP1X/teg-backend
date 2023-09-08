@@ -26,9 +26,18 @@ def verify_datasets_syncs():
                 authority.save()
 
 
+def verify_authorities():
+    from categories.models import Authorities
+
+    authorities = Authorities.objects.filter(name="UNESCO")
+    if not len(authorities):
+        Authorities.objects.create(name="UNESCO")
+
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tu_proyecto.settings")
 
 application = get_wsgi_application()
 
 # Llama a la función de verificación del servicio después de que se inicie la aplicación
 verify_datasets_syncs()
+verify_authorities()

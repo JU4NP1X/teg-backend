@@ -8,12 +8,12 @@ class Command(BaseCommand):
     help = "Importa datos de un archivo CSV y crea o actualiza los registros correspondientes en la base de datos"
 
     def add_arguments(self, parser):
-        parser.add_argument("csv_file", type=str, help="Ruta al archivo CSV")
+        parser.add_argument("csv_base64", type=str, help="Ruta al archivo CSV")
 
     def handle(self, *args, **options):
-        csv_file = options["csv_file"]
+        csv_base64 = options["csv_base64"]
 
-        with open(csv_file, "r") as file:
+        with open(csv_base64, "r") as file:
             reader = csv.DictReader(file)
             for row in reader:
                 paper_name = row["paper_name"]
