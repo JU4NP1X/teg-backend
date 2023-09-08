@@ -10,6 +10,7 @@ from googletrans import Translator as GoogleTranslator
 from django.db.models import Q
 from categories.models import Categories
 from bs4 import BeautifulSoup
+from fake_useragent import UserAgent
 from .models import Datasets, DatasetsEnglishTranslations, DatasetsUniversity
 
 requests.packages.urllib3.disable_warnings()
@@ -168,8 +169,8 @@ class OneSearchScraper:
                     print(f"Error getting data: {e}")
 
 
-import requests
-from bs4 import BeautifulSoup
+import random
+import time
 
 
 class GoogleScholarScraper:
@@ -178,7 +179,6 @@ class GoogleScholarScraper:
             name="google_scholar"
         ).first()
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",
             "Accept-Language": "en-US,en;q=0.9",
             "Accept-Encoding": "gzip, deflate, br",
             "Referer": "https://scholar.google.com/",
@@ -198,55 +198,84 @@ class GoogleScholarScraper:
                     f"{self.current_university.url}/scholar?q={query}&start={page * 10}"
                 )
 
-            response = requests.get(
-                search_url, headers=self.headers, timeout=40, verify=False
-            )
-            response.raise_for_status()
+            user_agent = UserAgent().random
+            self.headers["User-Agent"] = user_agent
+            try:
+                response = requests.get(
+                    search_url, headers=self.headers, timeout=40, verify=False
+                )
+                response.raise_for_status()
 
-            soup = BeautifulSoup(response.content, "html.parser")
-            result_links = soup.select(".gs_rt a")
+                if response.status_code == 429:
+                    # Si se recibe un error 429, esperar un tiempo aleatorio antes de realizar la siguiente solicitud
+                    wait_time = random.uniform(1, 3)
+                    time.sleep(wait_time)
+                    continue
 
-            for link in result_links:
-                if count >= 20:
-                    break
+                soup = BeautifulSoup(response.content, "html.parser")
+                result_links = soup.select(".gs_rt a")
 
-                url = link["href"]
-                try:
-                    title, meta_description = self.get_page_info(url)
-                    title = self.clean_data(title)
-                    meta_description = self.clean_data(meta_description)
-                    if len(meta_description) >= 250:
-                        dataset = Datasets.objects.filter(paper_name=title).first()
+                for link in result_links:
+                    if count >= 20:
+                        break
 
-                        if not dataset and len(title) <= 250:
-                            dataset = Datasets.objects.create(
-                                paper_name=title,
-                                summary=meta_description,
-                                university=self.current_university,
-                            )
-                        if dataset:
-                            dataset.save()
-                            existing_categories = dataset.categories.all()
-                            if category not in existing_categories:
-                                dataset.categories.add(category)
-                            count += 1
-                except Exception:
-                    print(f"Error retrieving page info for URL: {url}")
+                    url = link["href"]
+                    try:
+                        print("EMTRA")
+                        title, meta_description = self.get_page_info(url)
+                        title = self.clean_data(title)
+                        meta_description = self.clean_data(meta_description)
+                        if len(meta_description) >= 250:
+                            dataset = Datasets.objects.filter(paper_name=title).first()
 
-            page += 1
-            time.sleep(2)
+                            if not dataset and len(title) <= 250:
+                                dataset = Datasets.objects.create(
+                                    paper_name=title,
+                                    summary=meta_description,
+                                    university=self.current_university,
+                                )
+                            if dataset:
+                                dataset.save()
+                                existing_categories = dataset.categories.all()
+                                if category not in existing_categories:
+                                    dataset.categories.add(category)
+                                count += 1
+                    except Exception:
+                        print(f"Error retrieving page info for URL: {url}")
+
+                page += 1
+                time.sleep(2)
+            except Exception as e:
+                print(f"HTTPError: {e}")
+                # Si se recibe un error HTTP, esperar un tiempo aleatorio antes de realizar la siguiente solicitud
+                wait_time = random.uniform(1, 3)
+                time.sleep(wait_time)
+                break
 
     def get_page_info(self, url):
-        response = requests.get(url, headers=self.headers, timeout=40, verify=False)
+        try:
+            user_agent = UserAgent().random
+            self.headers["User-Agent"] = user_agent
+            response = requests.get(url, headers=self.headers, timeout=40, verify=False)
+            response.raise_for_status()
 
-        soup = BeautifulSoup(response.content, "html.parser")
-        title_tag = soup.find("title")
-        meta_tag = soup.find("meta", attrs={"name": "description"})
+            if response.status_code == 429:
+                # Si se recibe un error 429, esperar un tiempo aleatorio antes de realizar la siguiente solicitud
+                wait_time = random.uniform(1, 3)
+                time.sleep(wait_time)
+                return "", ""
 
-        title = title_tag.text if title_tag else ""
-        meta_description = meta_tag["content"] if meta_tag else ""
+            soup = BeautifulSoup(response.content, "html.parser")
+            title_tag = soup.find("title")
+            meta_tag = soup.find("meta", attrs={"name": "description"})
 
-        return title, meta_description
+            title = title_tag.text if title_tag else ""
+            meta_description = meta_tag["content"] if meta_tag else ""
+
+            return title, meta_description
+        except requests.exceptions.HTTPError as e:
+            print(f"HTTPError: {e}")
+            return "", ""
 
     def clean_data(self, data):
         # Remove invisible characters except spaces and tabs

@@ -12,7 +12,7 @@ def verify_datasets_syncs():
 
     for authority in authorities:
         if authority.pid != 0 or (
-            authority.pid == 0 and authority.status in ("GETTING_DATA", "TAINING")
+            authority.pid == 0 and authority.status in ("GETTING_DATA", "TRAINING")
         ):
             try:
                 process = psutil.Process(authority.pid)

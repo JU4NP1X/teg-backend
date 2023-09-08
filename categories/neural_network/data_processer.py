@@ -1,58 +1,49 @@
 import pandas as pd
 import numpy as np
-from django.db.models.functions import Concat
-from django.db.models import Value, CharField, Subquery, OuterRef, Func
+from django.db.models.functions import Concat, Cast
+from django.db.models import Value, CharField, Subquery, OuterRef, Func, IntegerField
 from datasets.models import DatasetsEnglishTranslations
 from collections import Counter
 from sklearn.utils import shuffle
 from sklearn.preprocessing import MultiLabelBinarizer
 from categories.models import Categories
+from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.aggregates import ArrayAgg
 
 
 class GroupConcat(Func):
-    function = "GROUP_CONCAT"
-    template = "%(function)s(%(expressions)s)"
+    function = "STRING_AGG"
+    template = "%(function)s(CAST(%(expressions)s AS text), ', ')"
 
 
 class DataProcesser:
     def __init__(self, authority_id):
-        self.datasets = DatasetsEnglishTranslations.objects.filter(
-            dataset__categories__deprecated=False,
-        ).annotate(
-            CONTEXT=Concat(
-                "paper_name", Value(": "), "summary", output_field=CharField()
-            ),
-            CATEGORIES=Subquery(
-                Categories.objects.filter(
-                    datasets=OuterRef("dataset"),
-                    deprecated=False,
-                    authority__id=authority_id,
-                )
-                .get_root_nodes()
-                .values("id")
-                .annotate(ids=GroupConcat("id"))
-                .values("ids"),
-                output_field=CharField(),
-            ),
+        self.datasets = (
+            DatasetsEnglishTranslations.objects.filter(
+                dataset__categories__deprecated=False,
+            )
+            .annotate(
+                CONTEXT=Concat(
+                    "paper_name", Value(": "), "summary", output_field=CharField()
+                ),
+                CATEGORIES=ArrayAgg(
+                    Subquery(
+                        Categories.objects.filter(
+                            deprecated=False,
+                            level=0,
+                            tree_id=OuterRef("dataset__categories__tree_id"),
+                            authority__id=authority_id,
+                        ).values("id")
+                    ),
+                ),
+            )
+            .values("CONTEXT", "CATEGORIES")
         )
         self.mlb = MultiLabelBinarizer()
 
     def get_data(self):
         df = pd.DataFrame.from_records(self.datasets.values("CATEGORIES", "CONTEXT"))
         df = df.sample(frac=1).reset_index(drop=True)
-
-        # Combine the categories, related thesauri, and parent categories into a single column
-        df["CATEGORIES"] = df.apply(
-            lambda row: list(
-                set((row["CATEGORIES"].split(",") if row["CATEGORIES"] else []))
-            ),
-            axis=1,
-        )
-
-        df["CATEGORIES"] = df["CATEGORIES"].apply(
-            lambda labels: [int(label_id) for label_id in labels if label_id]
-        )
-        df = df[df["CATEGORIES"].apply(lambda x: len(x) > 0)]
 
         print(df.head())
         return df
@@ -113,31 +104,35 @@ class DataProcesser:
         # Find the minimum category to balance
         min_category = min(counter, key=counter.get)
 
+        mean_category = sum(counter.values()) / len(counter)
+
         # Create an empty DataFrame to store the balanced data
         balanced_df = pd.DataFrame(columns=df.columns)
 
         # Iterate over each row in the original DataFrame
         for _, row in df.iterrows():
-            # If the row contains the minimum category, add it to the balanced DataFrame
-            if min_category in row["CATEGORIES"]:
-                balanced_df = pd.concat([balanced_df, row.to_frame().T])
-            else:
-                worst_proportion_in_row = float("inf")
-                tolerance = 400
-                for category in row["CATEGORIES"]:
-                    category_count = counter[category]
-
-                    if category_count < worst_proportion_in_row:
-                        worst_proportion_in_row = category_count
-                    if category_count > 500:
-                        tolerance = 100
-
-                # If not, add the row to the balanced DataFrame with a probability equal to the proportion of the minimum category
-                if (worst_proportion_in_row <= tolerance) or (
-                    (np.random.rand() * (counter[min_category] + tolerance))
-                    > (np.random.rand() * worst_proportion_in_row)
-                ):
+            worst_proportion_in_row = float("inf")
+            tolerance = 400
+            included = False
+            for category in row["CATEGORIES"]:
+                category_count = counter[category]
+                if mean_category > category_count:
                     balanced_df = pd.concat([balanced_df, row.to_frame().T])
+                    included = True
+                    break
+                if category_count < worst_proportion_in_row:
+                    worst_proportion_in_row = category_count
+                if category_count > 500:
+                    tolerance = 100
+
+            if included:
+                continue
+            # If not, add the row to the balanced DataFrame with a probability equal to the proportion of the minimum category
+            if (worst_proportion_in_row <= tolerance) or (
+                (np.random.rand() * (counter[min_category] + tolerance))
+                > (np.random.rand() * worst_proportion_in_row)
+            ):
+                balanced_df = pd.concat([balanced_df, row.to_frame().T])
 
         # Shuffle the balanced DataFrame to ensure the data is randomly distributed
         balanced_df = shuffle(balanced_df)

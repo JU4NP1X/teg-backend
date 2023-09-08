@@ -3,6 +3,13 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 from django.db.models import Q
 from .models import Categories, Translations, Authorities
+from django.db import connection
+
+
+def execute_query(query):
+    with connection.cursor() as cursor:
+        cursor.execute(query)
+
 
 requests.packages.urllib3.disable_warnings()
 
@@ -19,7 +26,7 @@ class CategoriesScraper:
 
     def __init__(self):
         self.base_url = "https://vocabularies.unesco.org/browser"
-        self.alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        self.alphabet = ""
         self.timeout = 15
         self.authority = Authorities.objects.get(name="UNESCO")
 
@@ -35,10 +42,8 @@ class CategoriesScraper:
         for letter in tqdm(self.alphabet, desc="Processing letters"):
             self.get_results(letter)
 
-        results_2_detail = (
-            Categories.objects.filter(authority=self.authority)
-            .exclude(translations__isnull=False)
-            .exclude(link="")
+        results_2_detail = Categories.objects.filter(authority=self.authority).exclude(
+            link=""
         )
         for result in tqdm(results_2_detail, desc="Getting details"):
             self.get_details(result)
@@ -53,11 +58,25 @@ class CategoriesScraper:
             current_category = Categories.objects.get(id=category.id)
             for descendant in descendants:
                 current_descendant = Categories.objects.get(id=descendant.id)
-                current_descendant.move_to(current_category.parent, "last-child")
+                current_descendant.move_to(current_category.parent, position="right")
                 current_descendant.save()
             current_category = Categories.objects.get(id=category.id)
-            current_category.move_to(None, "first-child")
+            current_category.move_to(None, position="right")
             current_category.save()
+
+        query = """
+            UPDATE categories AS ca
+            SET tree_id = ca2.tree_id, "level" = ca2.level + 1
+            FROM categories AS ca2
+            WHERE ca2.tree_id <> ca.tree_id AND ca2.id = ca.parent_id
+        """
+
+        # Tree correction (there is a bug, that the move_to not update the tree of it chindrens)
+        while True:
+            execute_query(query)
+            rows_affected = connection.cursor().rowcount
+            if rows_affected == 0:
+                break
 
     def get_results(self, letter):
         """
@@ -177,7 +196,7 @@ class CategoriesScraper:
                     )
                     if (not parent.deprecated) and (not result.deprecated):
                         if result.parent and result.parent.name != parent.name:
-                            result.move_to(parent, "last-child")
+                            result.move_to(parent, position="right")
                         elif not result.parent:
                             result.parent = parent
                         result.save()

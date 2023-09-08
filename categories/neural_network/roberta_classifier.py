@@ -122,7 +122,7 @@ class Classifier:
         authority.status = "TRAINING"
         authority.percentage = 0
         authority.save()
-
+        self.config["train_size"] = len(train_df)
         if checkpoint_path is not None and params_path is not None:
             self.model = CategoriesClassifier.load_from_checkpoint(
                 checkpoint_path,
@@ -166,10 +166,10 @@ class Classifier:
             shutil.rmtree(logs_dir, ignore_errors=True)
             os.makedirs(logs_dir, exist_ok=True)
 
-        # Cuando el entrenamiento haya terminado, establece el porcentaje en 0 y cambia el estado a "COMPLETE"
-        authority.status = "COMPLETE"
-        authority.percentage = 0
-        authority.save()
+            # Cuando el entrenamiento haya terminado, establece el porcentaje en 0 y cambia el estado a "COMPLETE"
+            authority.status = "COMPLETE"
+            authority.percentage = 0
+            authority.save()
 
     def save_categories(self):
         """
@@ -191,13 +191,19 @@ class TrainingProgressCallback(pl.Callback):
     def __init__(self, authority_id):
         self.authority_id = authority_id
 
-    def on_epoch_end(self, trainer, pl_module):
+    def on_validation_epoch_end(self, trainer, pl_module):
         # Calcula el porcentaje de entrenamiento completado
         current_epoch = trainer.current_epoch
         total_epochs = trainer.max_epochs
         percentage = (current_epoch + 1) / total_epochs * 100
 
+        # Calcula la pérdida promedio en la validación
+        avg_loss = trainer.callback_metrics["validation_loss"]
+        # Calcula la precisión teórica en base a la pérdida
+        theoretical_precision = 1 - avg_loss
         # Actualiza el porcentaje en la base de datos
         authority = Authorities.objects.get(id=self.authority_id)
         authority.percentage = percentage
+        authority.status = "TRAINING"
+        authority.theoretical_precision = theoretical_precision * 100
         authority.save()

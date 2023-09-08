@@ -118,11 +118,8 @@ class Command(BaseCommand):
                 progress_counter_google += 1
                 Authorities.objects.filter(id=authority.id).update(
                     status="GETTING_DATA",
-                    percentage=(
-                        (progress_counter / total_categories) * 0.8
-                        + (progress_counter_google / total_categories_google) * 0.2
-                    )
-                    * 100,
+                    percentage=80
+                    + (progress_counter_google / total_categories_google) * 20,
                     pid=pid,
                 )
 

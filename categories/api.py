@@ -17,6 +17,8 @@ and neural network module.
 """
 
 import os
+import base64
+import csv
 import subprocess
 from datetime import datetime, timezone
 from threading import Lock
@@ -40,6 +42,42 @@ from .serializers import (
 
 
 BASE_DIR = os.path.dirname(os.path.realpath(__name__))
+
+
+def has_invalid_relation(data):
+    """
+    Crear un diccionario para almacenar los padres de cada elemento
+    """
+    parents = {}
+
+    # Recorrer los datos y almacenar los padres de cada elemento
+    for row in data:
+        element_id = row["id"]
+        parent_id = row["parent"]
+
+        # Verificar si el elemento ya tiene un padre asignado
+        if element_id in parents:
+            return True  # Relación circular encontrada
+
+        # Almacenar el padre del elemento
+        parents[element_id] = parent_id
+
+        # Verificar si el padre del elemento es el propio elemento (relación circular)
+        if parent_id == element_id:
+            return True  # Relación circular encontrada
+
+        # Verificar si el padre del elemento existe en los datos
+        if parent_id not in [row["id"] for row in data]:
+            return True  # Relación inválida
+
+        # Verificar si hay una cadena de padres que forma una relación circular
+        current_parent = parent_id
+        while current_parent != "":
+            if current_parent == element_id:
+                return True  # Relación circular encontrada
+            current_parent = parents.get(current_parent, "")
+
+    return False  # No se encontró una relación circular
 
 
 class CategoriesFilter(filters.FilterSet):
@@ -180,35 +218,80 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         if instance.native:
             return Response(
-                {"detail": "Cannot delete a native authority."},
+                {"message": "Cannot delete a native authority."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
         return super().destroy(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
+        csv_base64 = request.data["csv_base64"]
         if (
             instance.native
             and "name" in request.data
             and request.data["name"] != instance.name
         ):
             return Response(
-                {"detail": "Cannot modify the name of a native authority."},
+                {"message": "Cannot modify the name of a native authority."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+        if csv_base64:
+            try:
+                csv_data = base64.b64decode(csv_base64).decode("utf-8")
+                csv_reader = csv.DictReader(csv_data.splitlines())
+                csv_data_list = list(csv_reader)
+
+                # Validar los campos requeridos y realizar otras validaciones
+
+                if has_invalid_relation(csv_data_list):
+                    return Response(
+                        {"message": "Circular relationship detected in the CSV data."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            except (TypeError, ValueError, UnicodeDecodeError):
+                return Response(
+                    {
+                        "message": "Invalid CSV format. Unable to decode base64 or parse CSV."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         return super().update(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
+        csv_base64 = request.data["csv_base64"]
         if (
             instance.native
             and "name" in request.data
             and request.data["name"] != instance.name
         ):
             return Response(
-                {"detail": "Cannot modify the name of a native authority."},
+                {"message": "Cannot modify the name of a native authority."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+        if csv_base64:
+            try:
+                csv_data = base64.b64decode(csv_base64).decode("utf-8")
+                csv_reader = csv.DictReader(csv_data.splitlines())
+                csv_data_list = list(csv_reader)
+
+                # Validar los campos requeridos y realizar otras validaciones
+
+                if has_invalid_relation(csv_data_list):
+                    return Response(
+                        {"message": "Circular relationship detected in the CSV data."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            except (TypeError, ValueError, UnicodeDecodeError):
+                return Response(
+                    {
+                        "message": "Invalid CSV format. Unable to decode base64 or parse CSV."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         return super().partial_update(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -313,7 +396,7 @@ class TrainAuthorityViewSet(viewsets.ViewSet):
             authorities_without_pid = Authorities.objects.filter(
                 id__in=authorities_ids, pid=0
             )
-            authorities_without_pid.update(status="GETTING_DATA")
+            authorities_without_pid.update(status="TRAINING")
 
             authorities_ids_str = " ".join(str(id) for id in authorities_ids)
 
