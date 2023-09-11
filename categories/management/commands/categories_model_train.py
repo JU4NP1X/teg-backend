@@ -27,6 +27,7 @@ class Command(BaseCommand):
         from_checkpoint = kwargs.get("from_pretrained", False)
         best_model_checkpoint = None
         best_model_params = None
+        pid = os.getpid()
 
         if from_checkpoint:
             checkpoint_path = os.path.join(BASE_DIR, "lightning_logs/version_0")
@@ -44,6 +45,7 @@ class Command(BaseCommand):
                 continue
 
             authority.status = "TRAINING"
+            authority.pid = pid
             authority.save()
             text_classifier = Classifier(authority_id, False)
             text_classifier.train(best_model_checkpoint, best_model_params)

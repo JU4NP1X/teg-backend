@@ -3,10 +3,12 @@ import shutil
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from transformers import AutoTokenizer
+from decimal import Decimal
 from categories.models import Categories, Authorities
 from categories.neural_network.data_processer import DataProcesser
 from categories.neural_network.data_module import DataModule
 from categories.neural_network.model import CategoriesClassifier
+
 
 BASE_DIR = os.path.dirname(os.path.realpath(__name__))
 
@@ -199,11 +201,11 @@ class TrainingProgressCallback(pl.Callback):
 
         # Calcula la pérdida promedio en la validación
         avg_loss = trainer.callback_metrics["validation_loss"]
+        theoretical_precision = Decimal(1 - avg_loss.item()) * 100
         # Calcula la precisión teórica en base a la pérdida
-        theoretical_precision = 1 - avg_loss
         # Actualiza el porcentaje en la base de datos
         authority = Authorities.objects.get(id=self.authority_id)
         authority.percentage = percentage
         authority.status = "TRAINING"
-        authority.theoretical_precision = theoretical_precision * 100
+        authority.theoretical_precision = theoretical_precision
         authority.save()

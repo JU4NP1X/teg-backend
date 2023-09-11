@@ -47,7 +47,7 @@ class TextClassifier:
         self.max_len = int(os.environ.get("CATEGORIES_MAX_LEN", 300))
         self.loaded_at = loaded_at
 
-        self.df = DataProcesser()
+        self.df = DataProcesser(authority_id)
         self.categories = self.df.get_categories(True)
 
         self.model = CategoriesClassifier.load_from_checkpoint(
@@ -85,7 +85,6 @@ class TextClassifier:
         predictions = trainer.predict(
             self.model,
             datamodule=data_loader,
-            ckpt_path=self.best_model_checkpoint,
         )[0]
         input_probs = torch.sigmoid(predictions)
         final_output = input_probs.cpu().numpy()[0]

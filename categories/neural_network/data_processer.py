@@ -49,9 +49,13 @@ class DataProcesser:
         return df
 
     def get_categories(self, trained=True):
-        self.categories = Categories.objects.filter(deprecated=False, parent=None)
+        self.categories = Categories.objects.filter(
+            deprecated=False, parent=None
+        ).order_by("id")
         if trained:
-            self.categories = self.categories.exclude(label_index__isnull=True)
+            self.categories = self.categories.exclude(
+                label_index__isnull=True
+            ).order_by("id")
         return self.categories.values_list("id", "name")
 
     def preprocess_data(self):

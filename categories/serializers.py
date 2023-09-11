@@ -27,8 +27,22 @@ class CategoriesSerializer(serializers.ModelSerializer):
         return None
 
     def get_authority(self, obj):
-        serializer = AuthoritySerializer(obj.authority)
+        serializer = AuthoritySerializerAlt(obj.authority)
         return serializer.data
+
+
+class AuthoritySerializerAlt(serializers.ModelSerializer):
+    """
+    Serializer for the Authorities model.
+
+    Attributes:
+        Meta (class): The metadata class for the serializer.
+    """
+
+    class Meta:
+        model = Authorities
+        fields = "__all__"
+        read_only_fields = ("created_at", "native")
 
 
 class AuthoritySerializer(serializers.ModelSerializer):
@@ -176,7 +190,7 @@ class TranslationsSerializer(serializers.ModelSerializer):
         read_only_fields = ("created_at",)
 
     def get_authority(self, obj):
-        serializer = AuthoritySerializer(obj.category.authority)
+        serializer = AuthoritySerializerAlt(obj.category.authority)
         return serializer.data
 
 
