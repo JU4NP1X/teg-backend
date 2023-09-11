@@ -6,9 +6,8 @@ from datasets.models import DatasetsEnglishTranslations
 from collections import Counter
 from sklearn.utils import shuffle
 from sklearn.preprocessing import MultiLabelBinarizer
-from categories.models import Categories
-from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.aggregates import ArrayAgg
+from categories.models import Categories
 
 
 class GroupConcat(Func):
@@ -18,6 +17,7 @@ class GroupConcat(Func):
 
 class DataProcesser:
     def __init__(self, authority_id):
+        self.authority_id = authority_id
         self.datasets = (
             DatasetsEnglishTranslations.objects.filter(
                 dataset__categories__deprecated=False,
@@ -32,7 +32,7 @@ class DataProcesser:
                             deprecated=False,
                             level=0,
                             tree_id=OuterRef("dataset__categories__tree_id"),
-                            authority__id=authority_id,
+                            authority__id=self.authority_id,
                         ).values("id")
                     ),
                 ),
@@ -41,25 +41,28 @@ class DataProcesser:
         )
         self.mlb = MultiLabelBinarizer()
 
+        self.categories = Categories.objects.filter(
+            authority__id=self.authority_id, deprecated=False, parent=None
+        ).order_by("id")
+
     def get_data(self):
         df = pd.DataFrame.from_records(self.datasets.values("CATEGORIES", "CONTEXT"))
         df = df.sample(frac=1).reset_index(drop=True)
 
-        print(df.head())
         return df
 
     def get_categories(self, trained=True):
-        self.categories = Categories.objects.filter(
-            deprecated=False, parent=None
-        ).order_by("id")
         if trained:
-            self.categories = self.categories.exclude(
-                label_index__isnull=True
-            ).order_by("id")
+            self.categories = (
+                self.categories.filter(authority__id=self.authority_id)
+                .exclude(label_index__isnull=True)
+                .order_by("id")
+            )
         return self.categories.values_list("id", "name")
 
     def preprocess_data(self):
         df = self.get_data()
+        print(df.head())
         # Make the list of possible results
         self.labels = self.get_categories(False)
 
@@ -99,6 +102,7 @@ class DataProcesser:
 
     # Really better solution, but slower
     def balance_data(self, df):
+        print(df.head())
         # First, flatten the list of categories and count the frequency of each one
         categories = [
             label for sublist in df["CATEGORIES"].tolist() for label in sublist

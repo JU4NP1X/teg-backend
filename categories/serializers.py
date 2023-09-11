@@ -22,13 +22,19 @@ class CategoriesSerializer(serializers.ModelSerializer):
     def get_translation(self, obj):
         translation = Translations.objects.filter(category=obj, language="es").first()
         if translation:
-            serializer = TranslationsSerializer(translation)
+            serializer = TranslationsSerializerAlt(translation)
             return serializer.data
         return None
 
     def get_authority(self, obj):
         serializer = AuthoritySerializerAlt(obj.authority)
         return serializer.data
+
+
+class CategoriesSerializerAlt(serializers.ModelSerializer):
+    class Meta:
+        model = Categories
+        exclude = ["lft", "rght", "level"]
 
 
 class AuthoritySerializerAlt(serializers.ModelSerializer):
@@ -174,6 +180,20 @@ class AuthoritySerializer(serializers.ModelSerializer):
         return {}
 
 
+class TranslationsSerializerAlt(serializers.ModelSerializer):
+    """
+    Serializer for the Translations model.
+
+    Attributes:
+        Meta (class): The metadata class for the serializer.
+    """
+
+    class Meta:
+        model = Translations
+        fields = "__all__"
+        read_only_fields = ("created_at",)
+
+
 class TranslationsSerializer(serializers.ModelSerializer):
     """
     Serializer for the Translations model.
@@ -184,6 +204,8 @@ class TranslationsSerializer(serializers.ModelSerializer):
 
     authority = serializers.SerializerMethodField()
 
+    category = serializers.SerializerMethodField()
+
     class Meta:
         model = Translations
         fields = "__all__"
@@ -191,6 +213,10 @@ class TranslationsSerializer(serializers.ModelSerializer):
 
     def get_authority(self, obj):
         serializer = AuthoritySerializerAlt(obj.category.authority)
+        return serializer.data
+
+    def get_category(self, obj):
+        serializer = CategoriesSerializerAlt(obj.category)
         return serializer.data
 
 
