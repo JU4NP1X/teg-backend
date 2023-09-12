@@ -69,9 +69,12 @@ class Command(BaseCommand):
             authorities = Authorities.objects.filter(active=True)
         else:
             authorities = Authorities.objects.filter(active=True, id__in=authorities)
-        if options["reset"]:
-            Categories.objects.update(searched_for_datasets=False)
+
         for authority in tqdm(authorities):
+            if options["reset"]:
+                Categories.objects.filter(authority__id=authority.id).update(
+                    searched_for_datasets=False
+                )
             if authority.pid != 0:
                 continue
             Authorities.objects.filter(id=authority.id).update(
@@ -86,7 +89,7 @@ class Command(BaseCommand):
             total_categories = len(categories)
             categories_progress = tqdm(categories)
             progress_counter = 0
-
+            print(categories)
             for category in categories_progress:
                 progress_counter += 1
                 Authorities.objects.filter(id=authority.id).update(

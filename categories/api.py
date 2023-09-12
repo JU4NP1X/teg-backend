@@ -89,15 +89,16 @@ def create_categories(authority_name, data):
     Categories.objects.filter(authority=authority).update(deprecated=True)
     # Recorrer los datos y almacenar los padres de cada elemento
     for row in data:
-        print(row)
         name = row["nombre_en"]
         name_es = row["nombre_es"]
-        category, created = Categories.objects.update_or_create(
+        category, _ = Categories.objects.update_or_create(
             name=name, authority=authority, deprecated=False
         )
-        Translations.objects.update_or_create(
+        trans, _ = Translations.objects.update_or_create(
             category=category, name=name_es, language="es"
         )
+
+        print(trans)
 
     for row in data:
         name = row["nombre_en"]
@@ -133,7 +134,14 @@ class CategoriesFilter(filters.FilterSet):
     name = filters.CharFilter()
     searched_for_datasets = filters.BooleanFilter()
     label_index = filters.NumberFilter()
-    tree_id = filters.NumberFilter()
+    tree_id = filters.CharFilter(method="filter_tree_id")
+
+    def filter_tree_id(self, queryset, name, value):
+        tree_ids = value.split(
+            ","
+        )  # Dividir la cadena en una lista de IDs de categorías
+        return queryset.filter(tree_id__in=tree_ids).distinct()
+
     authority = filters.ModelMultipleChoiceFilter(queryset=Authorities.objects.all())
 
     class Meta:
@@ -302,6 +310,7 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
         csv_base64 = None
         if "csv_base64" in request.data:
             csv_base64 = request.data["csv_base64"]
+        print(csv_base64)
         if (
             instance.native
             and "name" in request.data
@@ -313,17 +322,20 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
             )
         if csv_base64:
             try:
+                if "name" in request.data:
+                    name = request.data["name"]
+                else:
+                    name = instance.name
                 csv_data = base64.b64decode(csv_base64).decode("utf-8")
                 csv_reader = csv.DictReader(csv_data.splitlines())
                 csv_data_list = list(csv_reader)
-
-                # Validar los campos requeridos y realizar otras validaciones
 
                 if has_invalid_relation(csv_data_list):
                     return Response(
                         {"message": "Circular relationship detected in the CSV data."},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+                create_categories(name, csv_data_list)
 
             except (TypeError, ValueError, UnicodeDecodeError):
                 return Response(

@@ -23,7 +23,7 @@ def categories_tree_adjust():
     while True:
         execute_query(query)
         rows_affected = connection.cursor().rowcount
-        if rows_affected == 0:
+        if rows_affected <= 0:
             break
 
 
@@ -42,7 +42,7 @@ class CategoriesScraper:
 
     def __init__(self):
         self.base_url = "https://vocabularies.unesco.org/browser"
-        self.alphabet = ""
+        self.alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         self.timeout = 15
         self.authority = Authorities.objects.get(name="UNESCO")
 
@@ -58,8 +58,10 @@ class CategoriesScraper:
         for letter in tqdm(self.alphabet, desc="Processing letters"):
             self.get_results(letter)
 
-        results_2_detail = Categories.objects.filter(authority=self.authority).exclude(
-            link=""
+        results_2_detail = (
+            Categories.objects.filter(authority=self.authority)
+            .filter(translations=None)
+            .exclude(link="")
         )
         for result in tqdm(results_2_detail, desc="Getting details"):
             self.get_details(result)
@@ -74,7 +76,10 @@ class CategoriesScraper:
             current_category = Categories.objects.get(id=category.id)
             for descendant in descendants:
                 current_descendant = Categories.objects.get(id=descendant.id)
-                current_descendant.move_to(current_category.parent, position="right")
+                if current_category.parent == None:
+                    current_category.move_to(None, position="right")
+                else:
+                    current_descendant.parent = current_category.parent
                 current_descendant.save()
             current_category = Categories.objects.get(id=category.id)
             current_category.move_to(None, position="right")
@@ -199,10 +204,7 @@ class CategoriesScraper:
                         defaults={"link": link},
                     )
                     if (not parent.deprecated) and (not result.deprecated):
-                        if result.parent and result.parent.name != parent.name:
-                            result.move_to(parent, position="right")
-                        elif not result.parent:
-                            result.parent = parent
+                        result.parent = parent
                         result.save()
 
         # Find the translations in other languages

@@ -168,10 +168,11 @@ class Classifier:
             shutil.rmtree(logs_dir, ignore_errors=True)
             os.makedirs(logs_dir, exist_ok=True)
 
-            # Cuando el entrenamiento haya terminado, establece el porcentaje en 0 y cambia el estado a "COMPLETE"
-            authority.status = "COMPLETE"
-            authority.percentage = 0
-            authority.save()
+        # Cuando el entrenamiento haya terminado, establece el porcentaje en 0 y cambia el estado a "COMPLETE"
+        authority.status = "COMPLETE"
+        authority.percentage = 0
+        authority.pid = 0
+        authority.save()
 
     def save_categories(self):
         """
