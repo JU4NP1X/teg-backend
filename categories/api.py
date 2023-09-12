@@ -420,7 +420,6 @@ class TextClassificationViewSet(viewsets.ViewSet):
 
         # Check if the lock exists
         if authority_id not in settings.CLASSIFIERS_LOCKS:
-            print("Entra 1")
             settings.CLASSIFIERS_LOCKS[authority_id] = Lock()
 
         with settings.CLASSIFIERS_LOCKS[authority_id]:
@@ -428,26 +427,22 @@ class TextClassificationViewSet(viewsets.ViewSet):
             authority = Authorities.objects.filter(id=authority_id).first()
 
             if not authority.last_training_date:
-                print("Entra 2")
                 return Response(
                     {"message": "No trained classifier available for this authority"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
             if authority_id not in settings.TEXT_CLASSIFIERS:
-                print("Entra 3")
                 text_classifier = settings.TEXT_CLASSIFIERS[
                     authority_id
                 ] = TextClassifier(
                     authority_id=authority_id, loaded_at=datetime.now(timezone.utc)
                 )
             else:
-                print("Entra 4")
                 text_classifier = settings.TEXT_CLASSIFIERS[authority_id]
 
             # Check if the classifier needs to be reloaded
             if text_classifier.loaded_at < authority.last_training_date:
-                print("Entra 5")
                 text_classifier = TextClassifier(
                     authority_id=authority_id, loaded_at=datetime.now(timezone.utc)
                 )
