@@ -22,7 +22,11 @@ class Documents(models.Model):
 
     title = models.CharField(max_length=255)
     summary = models.TextField()
-    authors = models.CharField(max_length=255)
+    authors = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+    )
     categories = models.ManyToManyField(Categories)
     pdf = models.BinaryField(
         blank=True,

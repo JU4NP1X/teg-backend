@@ -11,7 +11,7 @@ class CategoriesSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Categories
-        exclude = ["lft", "rght", "level", "tree_id"]
+        exclude = ["lft", "rght", "level"]
 
     def get_translation(self, obj):
         translation = Translations.objects.filter(category=obj, language="es").first()
