@@ -6,6 +6,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.response import Response
+from utils.response_messages import RESPONSE_MESSAGES
 from categories.models import Authorities
 from .models import Datasets, DatasetsEnglishTranslations
 from .serializers import (
@@ -94,11 +95,15 @@ class DatasetSyncViewSet(viewsets.ViewSet):
                 ]
             )
             return Response(
-                {"message": "Action initiated successfully"},
-                status=status.HTTP_200_OK,
+                {
+                    "message": RESPONSE_MESSAGES["ACTION_INITIATED_SUCCESSFULLY"][
+                        "message"
+                    ]
+                },
+                status=RESPONSE_MESSAGES["ACTION_INITIATED_SUCCESSFULLY"]["code"],
             )
         else:
             return Response(
-                {"message": "Only administrators can execute this action"},
-                status=status.HTTP_403_FORBIDDEN,
+                {"message": RESPONSE_MESSAGES["FORBIDDEN_ACTION"]["message"]},
+                status=RESPONSE_MESSAGES["FORBIDDEN_ACTION"]["code"],
             )

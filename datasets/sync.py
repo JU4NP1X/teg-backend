@@ -124,14 +124,16 @@ class OneSearchScraper:
                         for category in categories:
                             # Filter thesauri that meet the criteria for a similar search
                             categories = Categories.objects.filter(
-                                name__icontains=category
+                                name__icontains=category,
+                                authority__id=self.category.authority_id,
                             ).first()
                             if categories:
                                 dataset_categories.append(categories)
                             else:
                                 categories = Categories.objects.filter(
                                     Q(name__icontains=category)
-                                    | Q(name__icontains="category")
+                                    | Q(name__icontains="category"),
+                                    authority__id=self.category.authority_id,
                                 ).first()
                                 if categories:
                                     dataset_categories.append(categories)
@@ -221,7 +223,6 @@ class GoogleScholarScraper:
 
                     url = link["href"]
                     try:
-                        print("EMTRA")
                         title, meta_description = self.get_page_info(url)
                         title = self.clean_data(title)
                         meta_description = self.clean_data(meta_description)

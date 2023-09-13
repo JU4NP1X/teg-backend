@@ -68,10 +68,10 @@ class Categories(MPTTModel):
 
     class MPTTMeta:
         order_insertion_by = ["id"]
-        unique_together = (("name", "authority"),)
 
     class Meta:
         db_table = "categories"
+        unique_together = (("name", "authority"),)
 
 
 class Translations(models.Model):

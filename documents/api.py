@@ -10,6 +10,7 @@ from .serializers import DocumentsSerializer, DocumentsTextExtractorSerializer
 from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
+from utils.response_messages import RESPONSE_MESSAGES
 from categories.models import Categories
 
 # Language config
@@ -115,22 +116,34 @@ class DocumentsTextExtractorViewSet(viewsets.ViewSet):
         title_base64 = request.data.get("title")
         summary_base64 = request.data.get("summary")
 
-        # Decodificar las imágenes base64 a objetos de imagen
-        title = Image.open(io.BytesIO(base64.b64decode(title_base64.split(",")[1])))
-        summary = Image.open(io.BytesIO(base64.b64decode(summary_base64.split(",")[1])))
+        try:
+            # Decodificar las imágenes base64 a objetos de imagen
+            title = Image.open(io.BytesIO(base64.b64decode(title_base64.split(",")[1])))
+            summary = Image.open(
+                io.BytesIO(base64.b64decode(summary_base64.split(",")[1]))
+            )
 
-        # Realizar el análisis OCR en las imágenes utilizando Tesseract OCR
-        title_text = " ".join(
-            pytesseract.image_to_string(title, config=custom_config).split()
-        )
-        summary_text = " ".join(
-            pytesseract.image_to_string(summary, config=custom_config).split()
-        )
+            # Realizar el análisis OCR en las imágenes utilizando Tesseract OCR
+            title_text = " ".join(
+                pytesseract.image_to_string(title, config=custom_config).split()
+            )
+            summary_text = " ".join(
+                pytesseract.image_to_string(summary, config=custom_config).split()
+            )
 
-        # Ejemplo de respuesta
-        response_data = {
-            "title": title_text,
-            "summary": summary_text,
-        }
-
-        return Response(response_data)
+            # Ejemplo de respuesta
+            response_data = {
+                "title": title_text,
+                "summary": summary_text,
+                "message": RESPONSE_MESSAGES["TEXT_EXTRACTION_SUCCESS"]["message"],
+            }
+            return Response(
+                response_data,
+                status=RESPONSE_MESSAGES["TEXT_EXTRACTION_SUCCESS"]["code"],
+            )
+        except Exception as e:
+            print(e)
+            return Response(
+                {"message": RESPONSE_MESSAGES["INVALID_IMAGE_FORMAT"]["message"]},
+                status=RESPONSE_MESSAGES["INVALID_IMAGE_FORMAT"]["code"],
+            )

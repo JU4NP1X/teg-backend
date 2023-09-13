@@ -240,7 +240,3 @@ class TrainAuthoritySerializer(serializers.Serializer):
     """
     Serializer of training authority
     """
-
-    authorities = serializers.PrimaryKeyRelatedField(
-        queryset=Authorities.objects.all(), many=True
-    )

@@ -89,7 +89,7 @@ class Command(BaseCommand):
             total_categories = len(categories)
             categories_progress = tqdm(categories)
             progress_counter = 0
-            print(categories)
+
             for category in categories_progress:
                 progress_counter += 1
                 Authorities.objects.filter(id=authority.id).update(
