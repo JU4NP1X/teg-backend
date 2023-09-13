@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "django_filters",
     "rest_framework.authtoken",
     # Services
+    "utils",
     "categories",
     "datasets",
     "documents",

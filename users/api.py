@@ -4,6 +4,7 @@ from django.contrib.auth import authenticate
 from rest_framework.permissions import IsAdminUser, IsAuthenticated, BasePermission
 from rest_framework.response import Response
 from google.auth.transport import requests
+from utils.response_messages import RESPONSE_MESSAGES
 from .models import User
 from .serializers import UsersSerializer, UserLoginSerializer, UserGoogleLoginSerializer
 
@@ -96,7 +97,10 @@ class LoginViewSet(viewsets.ViewSet):
         except User.DoesNotExist:
             pass
 
-        return Response({"error": "Invalid credentials"}, status=400)
+        return Response(
+            {"error": RESPONSE_MESSAGES["INVALID_CREDENTIALS"]["message"]},
+            status=RESPONSE_MESSAGES["INVALID_CREDENTIALS"]["code"],
+        )
 
 
 class GoogleLoginViewSet(viewsets.ViewSet):
@@ -124,7 +128,7 @@ class GoogleLoginViewSet(viewsets.ViewSet):
                 "accounts.google.com",
                 "https://accounts.google.com",
             ]:
-                raise ValueError("Invalid token")
+                raise ValueError(RESPONSE_MESSAGES["INVALID_TOKEN"]["message"])
 
             # Get or create the user based on the email
             user, created = User.objects.get_or_create(email=id_info["email"])
@@ -141,4 +145,7 @@ class GoogleLoginViewSet(viewsets.ViewSet):
             data["token"] = token.key  # Add the token to the response data
             return Response(data)
         except ValueError:
-            return Response({"error": "Invalid token"}, status=400)
+            return Response(
+                {"error": RESPONSE_MESSAGES["INVALID_TOKEN"]["message"]},
+                status=RESPONSE_MESSAGES["INVALID_TOKEN"]["code"],
+            )

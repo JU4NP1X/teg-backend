@@ -16,6 +16,7 @@ Note: This code assumes the existence of the necessary models, serializers,
 and neural network module.
 """
 
+import io
 import os
 import base64
 import csv
@@ -25,11 +26,14 @@ from threading import Lock
 from django.conf import settings
 from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import Subquery, OuterRef, CharField, Max
+from django.db.models.functions import Coalesce
 from googletrans import Translator as GoogleTranslator
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import viewsets, status
+from utils.response_messages import RESPONSE_MESSAGES
 from .neural_network.text_classifier import TextClassifier
 from .models import Categories, Translations, Authorities
 from .serializers import (
@@ -39,6 +43,8 @@ from .serializers import (
     TextClassificationSerializer,
     TrainAuthoritySerializer,
 )
+
+
 from .sync import categories_tree_adjust
 
 
@@ -50,70 +56,84 @@ def has_invalid_relation(data):
     Crear un diccionario para almacenar los padres de cada elemento
     """
     parents = {}
+    names = set()
 
     # Recorrer los datos y almacenar los padres de cada elemento
     for row in data:
         element_id = row["id"]
-        parent_id = row["parent"]
+        name = row["name"]
+        parent_id = row["parent_id"]
 
         # Verificar si el elemento ya tiene un padre asignado
         if element_id in parents:
-            return True  # Relación circular encontrada
+            return RESPONSE_MESSAGES["CIRCULAR_RELATIONSHIP"]
+        # Verificar si el nombre del elemento ya ha sido utilizado
+        if name in names:
+            return RESPONSE_MESSAGES["DUPLICATE_NAME"]
 
         # Almacenar el padre del elemento
         parents[element_id] = parent_id
+        names.add(name)
 
         # Verificar si el padre del elemento es el propio elemento (relación circular)
         if parent_id == element_id:
-            return True  # Relación circular encontrada
+            return RESPONSE_MESSAGES["CIRCULAR_RELATIONSHIP"]
 
         # Verificar si el padre del elemento existe en los datos
         if parent_id and parent_id not in [row["id"] for row in data]:
-            return True  # Relación inválida
+            return RESPONSE_MESSAGES["INVALID_RELATIONSHIP"]
 
         # Verificar si hay una cadena de padres que forma una relación circular
         current_parent = parent_id
         while current_parent != "":
             if current_parent == element_id:
-                return True  # Relación circular encontrada
+                return RESPONSE_MESSAGES["CIRCULAR_RELATIONSHIP"]
             current_parent = parents.get(current_parent, "")
 
-    return False  # No se encontró una relación circular
+    return {"code": 200}
 
 
 def create_categories(authority_name, data):
     """
     Crear un diccionario para almacenar los padres de cada elemento
     """
+
     authority = Authorities.objects.filter(name=authority_name).first()
-    Categories.objects.filter(authority=authority).update(deprecated=True)
+    categories = Categories.objects.filter(authority=authority)
+    max_tree_id = Categories.objects.aggregate(Max("tree_id"))["tree_id__max"]
+    for category in categories:
+        category.move_to(None, "last-child")
+        category.tree_id = max_tree_id + 1  # Asignar un nuevo valor a tree_id
+        category.save()
+
     # Recorrer los datos y almacenar los padres de cada elemento
     for row in data:
-        name = row["nombre_en"]
-        name_es = row["nombre_es"]
+        name = row["name"]
+        translation = row["translation"]
         category, _ = Categories.objects.update_or_create(
-            name=name, authority=authority, deprecated=False
+            name=name,
+            authority=authority,
+            defaults={"deprecated": False},
         )
-        trans, _ = Translations.objects.update_or_create(
-            category=category, name=name_es, language="es"
+        Translations.objects.update_or_create(
+            category=category, language="es", defaults={"name": translation}
         )
-
-        print(trans)
 
     for row in data:
-        name = row["nombre_en"]
-        parent_id = row["parent"]  # Obtén el ID del padre desde los datos
+        name = row["name"]
+        parent_id = row["parent_id"]  # Obtén el ID del padre desde los datos
         category = Categories.objects.filter(name=name, authority=authority).first()
         parent_name = None
         for parent_row in data:
             if parent_row["id"] == parent_id:
-                parent_name = parent_row["nombre_en"]
+                parent_name = parent_row["name"]
                 break
         parent = Categories.objects.filter(
             name=parent_name, authority=authority
         ).first()  # Busca el padre por su nombre en la base de datos
         if category and parent:
-            category.move_to(parent)
+            category.move_to(parent, "last-child")
+            category.save()
 
     categories_tree_adjust()
 
@@ -174,6 +194,34 @@ class TranslationsFilter(filters.FilterSet):
         fields = ["name", "language", "authority"]
 
 
+class AuthorityFilter(filters.FilterSet):
+    """
+    FilterSet for Categories model.
+    """
+
+    name = filters.CharFilter()
+    active = filters.BooleanFilter()
+
+    class Meta:
+        model = Authorities
+        fields = ["name", "active"]
+
+
+class GetAuthorityCategoriesFilter(filters.FilterSet):
+    """
+    FilterSet for Categories model.
+    """
+
+    authorities = filters.BaseInFilter(
+        field_name="authority__id",
+        label="Comma separated authority",
+    )
+
+    class Meta:
+        model = Categories
+        fields = ["authorities"]
+
+
 class CategoriesViewSet(viewsets.ModelViewSet):
     """
     Categories of the documents and datasets classification
@@ -202,7 +250,7 @@ class TranslationsViewSet(viewsets.ModelViewSet):
     Translations of the categories
     """
 
-    queryset = Translations.objects.all()
+    queryset = Translations.objects.filter(category__authority__active=True)
     permission_classes = [AllowAny]  # Allow access to anyone to view
     serializer_class = TranslationsSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -245,6 +293,7 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
     serializer_class = AuthoritySerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ["name"]
+    filterset_class = AuthorityFilter
 
     def get_permissions(self):
         """
@@ -263,34 +312,39 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         if instance.native:
             return Response(
-                {"message": "Cannot delete a native authority."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {
+                    "message": RESPONSE_MESSAGES["CANNOT_DELETE_NATIVE_AUTHORITY"][
+                        "message"
+                    ]
+                },
+                status=RESPONSE_MESSAGES["CANNOT_DELETE_NATIVE_AUTHORITY"]["code"],
             )
         return super().destroy(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
         csv_base64 = request.data["csv_base64"]
         exist = Authorities.objects.filter(name=request.data["name"])
-
         if exist:
             return Response(
-                {"message": "The authority already exist."},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"message": RESPONSE_MESSAGES["AUTHORITY_ALREADY_EXISTS"]["message"]},
+                status=RESPONSE_MESSAGES["AUTHORITY_ALREADY_EXISTS"]["code"],
             )
 
         try:
-            csv_data = base64.b64decode(csv_base64).decode("utf-8")
-            csv_reader = csv.DictReader(csv_data.splitlines())
-            csv_data_list = list(csv_reader)
+            csv_data_list = self.process_csv_data(csv_base64)
 
-            if has_invalid_relation(csv_data_list):
+            response = has_invalid_relation(csv_data_list)
+
+            if response["code"] != 200:
                 return Response(
-                    {"message": "Circular relationship detected in the CSV data."},
-                    status=status.HTTP_400_BAD_REQUEST,
+                    {"message": response["message"]},
+                    status=response["code"],
                 )
 
             response = super().create(request, *args, **kwargs)
             create_categories(request.data["name"], csv_data_list)
+            if response.status_code > 299:
+                raise Exception("Error creating category")
 
             return response
 
@@ -299,89 +353,75 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
             Authorities.objects.filter(name=request.data["name"]).delete()
 
             return Response(
-                {
-                    "message": "Invalid CSV format. Unable to decode base64 or parse CSV."
-                },
-                status=status.HTTP_400_BAD_REQUEST,
+                {"message": RESPONSE_MESSAGES["INVALID_CSV_FORMAT"]["message"]},
+                status=RESPONSE_MESSAGES["INVALID_CSV_FORMAT"]["code"],
             )
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
-        csv_base64 = None
-        if "csv_base64" in request.data:
-            csv_base64 = request.data["csv_base64"]
-        print(csv_base64)
-        if (
-            instance.native
-            and "name" in request.data
-            and request.data["name"] != instance.name
-        ):
+        csv_base64 = request.data.get("csv_base64")
+        if instance.native and request.data.get("name") != instance.name:
             return Response(
-                {"message": "Cannot modify the name of a native authority."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {
+                    "message": RESPONSE_MESSAGES["CANNOT_MODIFY_NATIVE_AUTHORITY_NAME"][
+                        "message"
+                    ]
+                },
+                status=RESPONSE_MESSAGES["CANNOT_MODIFY_NATIVE_AUTHORITY_NAME"]["code"],
             )
         if csv_base64:
             try:
-                if "name" in request.data:
-                    name = request.data["name"]
-                else:
-                    name = instance.name
-                csv_data = base64.b64decode(csv_base64).decode("utf-8")
-                csv_reader = csv.DictReader(csv_data.splitlines())
-                csv_data_list = list(csv_reader)
+                name = request.data.get("name", instance.name)
+                csv_data_list = self.process_csv_data(csv_base64)
 
-                if has_invalid_relation(csv_data_list):
+                response = has_invalid_relation(csv_data_list)
+
+                if response["code"] != 200:
                     return Response(
-                        {"message": "Circular relationship detected in the CSV data."},
-                        status=status.HTTP_400_BAD_REQUEST,
+                        {"message": response["message"]},
+                        status=response["code"],
                     )
                 create_categories(name, csv_data_list)
 
-            except (TypeError, ValueError, UnicodeDecodeError):
+            except (TypeError, ValueError, UnicodeDecodeError) as e:
+                print(e)
                 return Response(
-                    {
-                        "message": "Invalid CSV format. Unable to decode base64 or parse CSV."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
+                    {"message": RESPONSE_MESSAGES["INVALID_CSV_FORMAT"]["message"]},
+                    status=RESPONSE_MESSAGES["INVALID_CSV_FORMAT"]["code"],
                 )
         return super().update(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
-        csv_base64 = None
-        if "csv_base64" in request.data:
-            csv_base64 = request.data["csv_base64"]
-
-        if (
-            instance.native
-            and "name" in request.data
-            and request.data["name"] != instance.name
-        ):
+        csv_base64 = request.data.get("csv_base64")
+        if instance.native and request.data.get("name") != instance.name:
             return Response(
-                {"message": "Cannot modify the name of a native authority."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {
+                    "message": RESPONSE_MESSAGES["CANNOT_MODIFY_NATIVE_AUTHORITY_NAME"][
+                        "message"
+                    ]
+                },
+                status=RESPONSE_MESSAGES["CANNOT_MODIFY_NATIVE_AUTHORITY_NAME"]["code"],
             )
 
         if csv_base64:
             try:
-                csv_data = base64.b64decode(csv_base64).decode("utf-8")
-                csv_reader = csv.DictReader(csv_data.splitlines())
-                csv_data_list = list(csv_reader)
+                csv_data_list = self.process_csv_data(csv_base64)
 
-                # Validar los campos requeridos y realizar otras validaciones
+                response = has_invalid_relation(csv_data_list)
 
-                if has_invalid_relation(csv_data_list):
+                if response["code"] != 200:
                     return Response(
-                        {"message": "Circular relationship detected in the CSV data."},
-                        status=status.HTTP_400_BAD_REQUEST,
+                        {"message": response["message"]},
+                        status=response["code"],
                     )
 
-            except (TypeError, ValueError, UnicodeDecodeError):
+                create_categories(request.data["name"], csv_data_list)
+            except Exception as e:
+                print(e)
                 return Response(
-                    {
-                        "message": "Invalid CSV format. Unable to decode base64 or parse CSV."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
+                    {"message": RESPONSE_MESSAGES["INVALID_CSV_FORMAT"]["message"]},
+                    status=RESPONSE_MESSAGES["INVALID_CSV_FORMAT"]["code"],
                 )
         return super().partial_update(request, *args, **kwargs)
 
@@ -394,6 +434,11 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
         self.serializer_class.exclude_counts = exclude_counts
 
         return queryset
+
+    def process_csv_data(self, csv_base64):
+        csv_data = base64.b64decode(csv_base64).decode("utf-8")
+        csv_reader = csv.DictReader(csv_data.splitlines())
+        return list(csv_reader)
 
 
 class TextClassificationViewSet(viewsets.ViewSet):
@@ -421,13 +466,12 @@ class TextClassificationViewSet(viewsets.ViewSet):
         summary = request.data.get("summary")
         authority_id = request.data.get("authority_id")
         model_path = os.path.join(BASE_DIR, "trained_model")
-        model_checkpoint = f"{model_path}/{authority_id}/model.ckpt"
+        model_checkpoint = os.path.join(model_path, authority_id, "model.ckpt")
 
         if not os.path.exists(model_path) or not os.path.exists(model_checkpoint):
-            print(model_checkpoint)
             return Response(
-                {"message": "No trained classifier available for this authority"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {"message": RESPONSE_MESSAGES["TRAINING_MODEL_NOT_EXIST"]["message"]},
+                status=RESPONSE_MESSAGES["TRAINING_MODEL_NOT_EXIST"]["code"],
             )
 
         # Check if the lock exists
@@ -440,8 +484,12 @@ class TextClassificationViewSet(viewsets.ViewSet):
 
             if not authority.last_training_date:
                 return Response(
-                    {"message": "No trained classifier available for this authority"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    {
+                        "message": RESPONSE_MESSAGES["TRAINING_MODEL_NOT_EXIST"][
+                            "message"
+                        ]
+                    },
+                    status=RESPONSE_MESSAGES["TRAINING_MODEL_NOT_EXIST"]["code"],
                 )
 
             if authority_id not in settings.TEXT_CLASSIFIERS:
@@ -460,15 +508,25 @@ class TextClassificationViewSet(viewsets.ViewSet):
                 )
                 settings.TEXT_CLASSIFIERS[authority_id] = text_classifier
 
-            # Translate the title to English
-            translator = GoogleTranslator()
-            predicted_labels = text_classifier.classify_text(
-                translator.translate(f"{title}: {summary}", dest="en").text
-            )
-            serializer = CategoriesSerializer(predicted_labels, many=True)
-            serialized_data = serializer.data
+            try:
+                # Translate the title to English
+                translator = GoogleTranslator()
+                predicted_labels = text_classifier.classify_text(
+                    translator.translate(f"{title}: {summary}", dest="en").text
+                )
+                serializer = CategoriesSerializer(predicted_labels, many=True)
+                serialized_data = serializer.data
 
-            return Response(serialized_data)
+                return Response(serialized_data)
+            except Exception as e:
+                return Response(
+                    {
+                        "message": RESPONSE_MESSAGES["TRAINING_MODEL_NOT_EXIST"][
+                            "message"
+                        ]
+                    },
+                    status=RESPONSE_MESSAGES["TRAINING_MODEL_NOT_EXIST"]["code"],
+                )
 
 
 class TrainAuthorityViewSet(viewsets.ViewSet):
@@ -480,31 +538,95 @@ class TrainAuthorityViewSet(viewsets.ViewSet):
     permission_classes = [IsAdminUser]
 
     def create(self, request):
-        if request.user.is_superuser:
-            serializer = TrainAuthoritySerializer(data=request.data)
+        serializer = TrainAuthoritySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        authorities = serializer.validated_data["authorities"]
+        authorities_ids = [authority.id for authority in authorities]
+        authorities_without_pid = Authorities.objects.filter(
+            id__in=authorities_ids, pid=0
+        )
+        authorities_without_pid.update(status="TRAINING")
+
+        authorities_ids_str = " ".join(str(id) for id in authorities_ids)
+
+        subprocess.Popen(
+            [
+                "python",
+                "./manage.py",
+                "categories_model_train",
+                "--authorities",
+                authorities_ids_str,
+            ]
+        )
+        return Response(
+            {"message": RESPONSE_MESSAGES["ERROR_TRAINING"]["message"]},
+            status=RESPONSE_MESSAGES["ERROR_TRAINING"]["code"],
+        )
+
+
+class GetAuthorityCategoriesViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Syncronize starter.
+    """
+
+    queryset = Categories.objects.filter(deprecated=False)
+
+    permission_classes = [IsAdminUser]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = GetAuthorityCategoriesFilter
+    serializer_class = TrainAuthoritySerializer
+
+    http_method_names = ["get"]
+
+    def list(self, request):
+        try:
+            serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            authorities = serializer.validated_data["authorities"]
-            authorities_ids = [authority.id for authority in authorities]
-            authorities_without_pid = Authorities.objects.filter(
-                id__in=authorities_ids, pid=0
-            )
-            authorities_without_pid.update(status="TRAINING")
 
-            authorities_ids_str = " ".join(str(id) for id in authorities_ids)
+            # Check if the filter is provided in the request
+            if "authorities" not in request.query_params:
+                return Response(
+                    {"message": "The 'authorities' parameter is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-            subprocess.Popen(
-                [
-                    "python",
-                    "./manage.py",
-                    "categories_model_train",
-                    "--authorities",
-                    authorities_ids_str,
-                ]
+            # Apply the filter
+            queryset = self.filter_queryset(self.get_queryset())
+
+            # Annotate the queryset with translation using a subquery
+            subquery = Translations.objects.filter(
+                category_id=OuterRef("id"),
+                language="es",
+            ).values("name")[:1]
+            queryset = queryset.annotate(
+                translation=Subquery(subquery, output_field=CharField()),
             )
+
+            # Create a CSV string
+            csv_data = io.StringIO()
+            csv_writer = csv.writer(csv_data)
+            csv_writer.writerow(["id", "name", "translation", "parent_id"])
+            for category in queryset:
+                csv_writer.writerow(
+                    [
+                        category.id,
+                        category.name,
+                        category.translation or "",
+                        category.parent_id or "",
+                    ]
+                )
+
+            # Convert the CSV string to base64
+            csv_bytes = csv_data.getvalue().encode("utf-8")
+            base64_csv = base64.b64encode(csv_bytes).decode("utf-8")
             return Response(
-                {"message": "Action initiated successfully"}, status=status.HTTP_200_OK
+                {"csv_data": base64_csv},
+                status=RESPONSE_MESSAGES["OK"]["code"],
             )
-        else:
+
+        except Exception as e:
+            print(e)
             return Response(
-                {"message": "Only administrators can execute this action"},
+                {"message": RESPONSE_MESSAGES["CSV_CREATION_FAILED"]["message"]},
+                status=RESPONSE_MESSAGES["CSV_CREATION_FAILED"]["code"],
             )
