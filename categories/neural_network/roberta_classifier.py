@@ -67,8 +67,8 @@ class Classifier:
         self.n_epochs = int(os.environ.get("CATEGORIES_EPOCHS", 20))
         self.learning_rate = float(os.environ.get("CATEGORIES_LEARNING_RATE", 1e-07))
         self.best_model_checkpoint = f"{self.best_model_path}/model.ckpt"
-        self.model_name = "distilroberta-base"
-        self.tokenizer_name = "roberta-base"
+        self.model_name = "roberta-large-mnli"
+        self.tokenizer_name = "roberta-large"
         self.model = None
 
         if trained:

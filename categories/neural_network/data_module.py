@@ -33,7 +33,7 @@ class DataModule(pl.LightningDataModule):
         self.train_dataset = None
         self.val_dataset = None
 
-        self.tokenizer_name = "roberta-base"
+        self.tokenizer_name = "roberta-large"
         tokenizer_path = os.path.join(BASE_DIR, self.tokenizer_name)
         create_pretrained_copy(tokenizer_path, self.tokenizer_name)
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)

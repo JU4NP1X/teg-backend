@@ -22,7 +22,7 @@ class CategoriesSerializer(serializers.ModelSerializer):
     def get_translation(self, obj):
         translation = Translations.objects.filter(category=obj, language="es").first()
         if translation:
-            serializer = TranslationsSerializerAlt(translation)
+            serializer = TranslationsSerializer(translation)
             return serializer.data
         return None
 
@@ -178,20 +178,6 @@ class AuthoritySerializer(serializers.ModelSerializer):
                 .first()
             )
         return {}
-
-
-class TranslationsSerializerAlt(serializers.ModelSerializer):
-    """
-    Serializer for the Translations model.
-
-    Attributes:
-        Meta (class): The metadata class for the serializer.
-    """
-
-    class Meta:
-        model = Translations
-        fields = "__all__"
-        read_only_fields = ("created_at",)
 
 
 class TranslationsSerializer(serializers.ModelSerializer):

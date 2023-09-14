@@ -62,7 +62,6 @@ class DataProcesser:
 
     def preprocess_data(self):
         df = self.get_data()
-        print(df.head())
         # Make the list of possible results
         self.labels = self.get_categories(False)
 
