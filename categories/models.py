@@ -36,6 +36,8 @@ class Authorities(models.Model):
         db_table = "categories_authorities"
 
 
+
+
 class Categories(MPTTModel):
     """
     Model representing categories.

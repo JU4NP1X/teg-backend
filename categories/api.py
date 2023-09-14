@@ -99,12 +99,8 @@ def create_categories(authority_name, data):
     """
 
     authority = Authorities.objects.filter(name=authority_name).first()
-    categories = Categories.objects.filter(authority=authority)
+    Categories.objects.filter(authority=authority).update(deprecated=True)
     max_tree_id = Categories.objects.aggregate(Max("tree_id"))["tree_id__max"]
-    for category in categories:
-        category.move_to(None, "last-child")
-        category.tree_id = max_tree_id + 1  # Asignar un nuevo valor a tree_id
-        category.save()
 
     # Recorrer los datos y almacenar los padres de cada elemento
     for row in data:
@@ -132,7 +128,14 @@ def create_categories(authority_name, data):
             name=parent_name, authority=authority
         ).first()  # Busca el padre por su nombre en la base de datos
         if category and parent:
+            max_tree_id += 1
+            category.tree_id = max_tree_id
             category.move_to(parent, "last-child")
+            category.save()
+        elif not parent and category.level != 0:
+            max_tree_id += 1
+            category.tree_id = max_tree_id
+            category.move_to(None, "last-child")
             category.save()
 
     categories_tree_adjust()
