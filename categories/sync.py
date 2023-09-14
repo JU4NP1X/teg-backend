@@ -5,6 +5,8 @@ from django.db.models import Q
 from .models import Categories, Translations, Authorities
 from django.db import connection
 
+requests.packages.urllib3.disable_warnings()
+
 
 def execute_query(query):
     with connection.cursor() as cursor:
@@ -26,8 +28,13 @@ def categories_tree_adjust():
         if rows_affected <= 0:
             break
 
+    query = """
+        UPDATE categories AS ca
+        SET "level" = 0
+        WHERE ca.deprecated = TRUE
+    """
 
-requests.packages.urllib3.disable_warnings()
+    execute_query(query)
 
 
 class CategoriesScraper:

@@ -1,5 +1,7 @@
 from django.db import models
-from categories.models import Categories
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
+from categories.models import Categories, Authorities
 
 
 class Datasets(models.Model):
@@ -79,3 +81,8 @@ class DatasetsEnglishTranslations(models.Model):
 
     class Meta:
         db_table = "datasets_english_translations"
+
+
+@receiver(post_delete, sender=Authorities)
+def delete_datasets(sender, instance, **kwargs):
+    Datasets.objects.filter(categories=None).delete()
