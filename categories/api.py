@@ -305,7 +305,7 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
         Returns:
             list: List of permission classes.
         """
-        if self.action in ["create", "destroy"]:
+        if self.action in ["create", "destroy", "update"]:
             return [
                 IsAdminUser()
             ]  # Only allow access to admin users to create or delete

@@ -97,6 +97,7 @@ class UsersSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(**validated_data)
         user.set_password(password)
         user.is_superuser = is_admin
+        user.is_staff = is_admin
         user.save()
         return user
 
@@ -132,6 +133,7 @@ class UsersSerializer(serializers.ModelSerializer):
             user.set_password(password)
         if is_admin is not None:
             user.is_superuser = is_admin
+            user.is_staff = is_admin
         user.save()
         return user
 
