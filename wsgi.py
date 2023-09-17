@@ -8,6 +8,7 @@ from django.core.wsgi import get_wsgi_application
 def verify_datasets_syncs():
     from categories.models import Authorities
 
+    Authorities.objects.update(active=False)
     authorities = Authorities.objects.all()
 
     for authority in authorities:

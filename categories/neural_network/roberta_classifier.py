@@ -1,9 +1,11 @@
 import os
 import shutil
+import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from transformers import AutoTokenizer
 from decimal import Decimal
+from django.utils import timezone
 from categories.models import Categories, Authorities
 from categories.neural_network.data_processer import DataProcesser
 from categories.neural_network.data_module import DataModule
@@ -25,8 +27,8 @@ def create_pretrained_copy(tokenizer_path, tokenizer_name):
         None
     """
     if not os.path.exists(tokenizer_path):
-        model = AutoTokenizer.from_pretrained(tokenizer_name)
-        model.save_pretrained(tokenizer_path)
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+        tokenizer.save_pretrained(tokenizer_path)
 
 
 class Classifier:
@@ -38,7 +40,7 @@ class Classifier:
         max_len (int): The maximum length of input sequences.
         n_epochs (int): The number of training epochs.
         learning_rate (float): The learning rate for training.
-        best_model_checkpoint (str): The path to save the best model checkpoint.
+        best_model_pt (str): The path to save the best model pt.
         model_name (str): The name of the model.
         tokenizer_name (str): The name of the tokenizer.
         tokenizer (AutoTokenizer): The pretrained tokenizer.
@@ -49,7 +51,7 @@ class Classifier:
         logs_path (str): The path to save the logs.
     """
 
-    def __init__(self, authority_id, trained=True):
+    def __init__(self, authority_id):
         """
         Initializes a new instance of the Classifier class.
 
@@ -66,13 +68,10 @@ class Classifier:
         self.max_len = int(os.environ.get("CATEGORIES_MAX_LEN", 300))
         self.n_epochs = int(os.environ.get("CATEGORIES_EPOCHS", 20))
         self.learning_rate = float(os.environ.get("CATEGORIES_LEARNING_RATE", 1e-07))
-        self.best_model_checkpoint = f"{self.best_model_path}/model.ckpt"
+        self.best_model_pt = f"{self.best_model_path}/model.pt"
         self.model_name = "roberta-large-mnli"
         self.tokenizer_name = "roberta-large"
         self.model = None
-
-        if trained:
-            self.model_name = self.best_model_checkpoint
 
         tokenizer_path = os.path.join(BASE_DIR, self.tokenizer_name)
         create_pretrained_copy(tokenizer_path, self.tokenizer_name)
@@ -80,7 +79,7 @@ class Classifier:
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
         self.df = DataProcesser(self.authority_id)
 
-        self.categories = self.df.get_categories(trained)
+        self.categories = self.df.get_categories(False)
         categories_names = [label_name for _, label_name in self.categories]
         self.batch_size = int(os.environ.get("CATEGORIES_BATCH_SIZE", 5))
 
@@ -134,7 +133,6 @@ class Classifier:
             )
         else:
             self.model = CategoriesClassifier(self.config, self.df.weights)
-        self.df = None
         checkpoint_callback = ModelCheckpoint(
             save_top_k=1,
             mode="min",
@@ -144,6 +142,7 @@ class Classifier:
 
         trainer = pl.Trainer(
             max_epochs=self.config["n_epochs"],
+            precision=16,
             num_sanity_val_steps=1,
             callbacks=[
                 checkpoint_callback,
@@ -151,27 +150,26 @@ class Classifier:
             ],
         )
 
-        trainer.fit(self.model, datamodule=data_module, ckpt_path=checkpoint_path)
-
-        if not trainer.interrupted:
-            # Save the best model
-            best_checkpoint = checkpoint_callback.best_model_path
-            if best_checkpoint:
-                shutil.copy(best_checkpoint, self.best_model_checkpoint)
-                shutil.copy(
-                    f"{self.logs_path}/version_0/hparams.yaml",
-                    f"{self.best_model_path}/hparams.yaml",
-                )
+        # trainer.fit(self.model, datamodule=data_module, ckpt_path=checkpoint_path)
+        # if not trainer.interrupted:
+        if True:
+            state_dict = self.model.state_dict()
+            torch.save(state_dict, f"{self.best_model_path}/model_weights.pt")
 
             # Delete the logs
             logs_dir = trainer.logger.root_dir
             shutil.rmtree(logs_dir, ignore_errors=True)
             os.makedirs(logs_dir, exist_ok=True)
+            # Delete the logs
+            # logs_dir = trainer.logger.root_dir
+            # shutil.rmtree(logs_dir, ignore_errors=True)
+            # os.makedirs(logs_dir, exist_ok=True)
 
         # Cuando el entrenamiento haya terminado, establece el porcentaje en 0 y cambia el estado a "COMPLETE"
         authority.status = "COMPLETE"
         authority.percentage = 0
         authority.pid = 0
+        authority.last_training_date = timezone.now()
         authority.save()
 
     def save_categories(self):

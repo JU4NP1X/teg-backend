@@ -1,11 +1,10 @@
 import os
 import torch
-import pytorch_lightning as pl
+import yaml
 import numpy as np
 import pandas as pd
 from transformers import AutoTokenizer
 from categories.neural_network.data_processer import DataProcesser
-from categories.neural_network.data_module import DataModule
 from categories.neural_network.model import CategoriesClassifier
 from categories.models import Categories
 
@@ -25,8 +24,8 @@ def create_pretrained_copy(tokenizer_path, tokenizer_name):
         None
     """
     if not os.path.exists(tokenizer_path):
-        model = AutoTokenizer.from_pretrained(tokenizer_name)
-        model.save_pretrained(tokenizer_path)
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+        tokenizer.save_pretrained(tokenizer_path)
 
 
 class TextClassifier:
@@ -42,19 +41,31 @@ class TextClassifier:
             None
         """
         self.best_model_path = os.path.join(BASE_DIR, "trained_model")
-        self.best_model_checkpoint = f"{self.best_model_path}/{authority_id}/model.ckpt"
+        self.best_model_weights = (
+            f"{self.best_model_path}/{authority_id}/model_weights.pt"
+        )
+        tokenizer_path = os.path.join(BASE_DIR, "roberta-large")
+
         self.best_model_params = f"{self.best_model_path}/{authority_id}/hparams.yaml"
+        with open(self.best_model_params, "r") as file:
+            yaml_dict = yaml.safe_load(file)
+
         self.max_len = int(os.environ.get("CATEGORIES_MAX_LEN", 300))
         self.loaded_at = loaded_at
+        self.categories = Categories.objects.filter(
+            authority__id=authority_id, deprecated=False, parent=None
+        ).count()
 
-        self.df = DataProcesser(authority_id)
-        self.categories = self.df.get_categories(True)
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
 
-        self.model = CategoriesClassifier.load_from_checkpoint(
-            self.best_model_checkpoint,
-            hparams_file=self.best_model_params,
-            pos_weights=np.ones(len(self.categories)),
+        self.model = CategoriesClassifier(
+            config=yaml_dict["config"],
+            pos_weights=np.ones(self.categories),
         )
+        self.model.load_state_dict(
+            torch.load(self.best_model_weights, map_location=torch.device("cpu"))
+        )
+        torch.set_default_dtype(torch.float16)
         self.model.eval()
 
     def classify_text(self, text):
@@ -67,26 +78,21 @@ class TextClassifier:
         Returns:
             list: A list of categories that the text belongs to.
         """
-
-        categories_names = [label_name for _, label_name in self.categories]
-        # Crear el dataframe
-        data = {"CONTEXT": [text]}
-        data.update({column: 0 for column in categories_names})
-
-        df = pd.DataFrame(data)
-        data_loader = DataModule(
-            None,
-            val_data=df,
+        encoded_input = self.tokenizer.encode_plus(
+            text,
+            add_special_tokens=True,
             max_length=self.max_len,
-            attributes=categories_names,
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt",
         )
+        input_ids = encoded_input["input_ids"]
+        attention_mask = encoded_input["attention_mask"]
 
-        trainer = pl.Trainer()
-        predictions = trainer.predict(
-            self.model,
-            datamodule=data_loader,
-        )[0]
-        input_probs = torch.sigmoid(predictions)
+        with torch.no_grad():
+            output = self.model(input_ids, attention_mask)[1]
+
+        input_probs = torch.sigmoid(output)
         final_output = input_probs.cpu().numpy()[0]
         close_indexes = np.where(final_output >= 0.5)[0]
         filtered_categories = Categories.objects.filter(

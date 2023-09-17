@@ -47,6 +47,6 @@ class Command(BaseCommand):
             authority.status = "TRAINING"
             authority.pid = pid
             authority.save()
-            text_classifier = Classifier(authority_id, False)
+            text_classifier = Classifier(authority_id)
             text_classifier.train(best_model_checkpoint, best_model_params)
             text_classifier.save_categories()

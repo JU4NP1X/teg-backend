@@ -1,6 +1,10 @@
+import gc
 from django.db import models
+from django.conf import settings
 from mptt.models import MPTTModel, TreeForeignKey
 from mptt.managers import TreeManager
+from datetime import datetime, timezone
+from db_mutex.db_mutex import db_mutex
 
 
 class Authorities(models.Model):
@@ -26,16 +30,33 @@ class Authorities(models.Model):
         max_length=20, choices=STATUS_CHOICES, default="NOT_TRAINED"
     )
     last_training_date = models.DateTimeField(null=True, blank=True)
-    active = models.BooleanField(default=True)
+    active = models.BooleanField(default=False)
+    disabled = models.BooleanField(default=False)
     native = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        from .neural_network.text_classifier import TextClassifier
+
+        if self.pk:  # Check if the instance already exists in the database
+            original_instance = Authorities.objects.get(pk=self.pk)
+            if original_instance.active != self.active:  # Check if 'active' has changed
+                with db_mutex(str(self.pk)):
+                    if not self.active:
+                        settings.TEXT_CLASSIFIERS[str(self.pk)] = None
+                    else:
+                        settings.TEXT_CLASSIFIERS[str(self.pk)] = TextClassifier(
+                            authority_id=str(self.pk),
+                            loaded_at=datetime.now(timezone.utc),
+                        )
+                    gc.collect()
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return str(self.name)
 
     class Meta:
         db_table = "categories_authorities"
-
-
 
 
 class Categories(MPTTModel):

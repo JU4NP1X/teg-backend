@@ -17,6 +17,7 @@ class AppsView(APIView):
             "datasets": request.build_absolute_uri("datasets/"),
             "documents": request.build_absolute_uri("documents/"),
             "users": request.build_absolute_uri("users/"),
+            "utils": request.build_absolute_uri("utils/"),
         }
         return Response(apidocs)
 
@@ -27,5 +28,6 @@ urlpatterns = [
     path("categories/", include("categories.urls")),
     path("datasets/", include("datasets.urls")),
     path("documents/", include("documents.urls")),
+    path("utils/", include("utils.urls")),
     path("", AppsView.as_view(), name="list_apps"),
 ]

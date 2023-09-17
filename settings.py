@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "requests",
     "django_filters",
     "rest_framework.authtoken",
+    "db_mutex",
     # Services
     "utils",
     "categories",
@@ -159,5 +160,4 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 CRONJOBS = [("0 0 * * 6", "categories.sync.start_scraping")]
 
 
-CLASSIFIERS_LOCKS = {}
 TEXT_CLASSIFIERS = {}

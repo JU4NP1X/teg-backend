@@ -10,8 +10,8 @@ BASE_DIR = os.path.dirname(os.path.realpath(__name__))
 
 def create_pretrained_copy(tokenizer_path, tokenizer_name):
     if not os.path.exists(tokenizer_path):
-        model = AutoTokenizer.from_pretrained(tokenizer_name)
-        model.save_pretrained(tokenizer_path)
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+        tokenizer.save_pretrained(tokenizer_path)
 
 
 class DataModule(pl.LightningDataModule):

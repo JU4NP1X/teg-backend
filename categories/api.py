@@ -27,7 +27,7 @@ from django.conf import settings
 from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Subquery, OuterRef, CharField, Max
-from django.db.models.functions import Coalesce
+from db_mutex.db_mutex import db_mutex
 from googletrans import Translator as GoogleTranslator
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
@@ -204,10 +204,11 @@ class AuthorityFilter(filters.FilterSet):
 
     name = filters.CharFilter()
     active = filters.BooleanFilter()
+    disabled = filters.BooleanFilter()
 
     class Meta:
         model = Authorities
-        fields = ["name", "active"]
+        fields = ["name", "active", "disabled"]
 
 
 class GetAuthorityCategoriesFilter(filters.FilterSet):
@@ -253,7 +254,7 @@ class TranslationsViewSet(viewsets.ModelViewSet):
     Translations of the categories
     """
 
-    queryset = Translations.objects.filter(category__authority__active=True)
+    queryset = Translations.objects.filter(category__authority__disabled=False)
     permission_classes = [AllowAny]  # Allow access to anyone to view
     serializer_class = TranslationsSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -477,11 +478,7 @@ class TextClassificationViewSet(viewsets.ViewSet):
                 status=RESPONSE_MESSAGES["TRAINING_MODEL_NOT_EXIST"]["code"],
             )
 
-        # Check if the lock exists
-        if authority_id not in settings.CLASSIFIERS_LOCKS:
-            settings.CLASSIFIERS_LOCKS[authority_id] = Lock()
-
-        with settings.CLASSIFIERS_LOCKS[authority_id]:
+        with db_mutex(authority_id):
             # Check if the text_classifier exists
             authority = Authorities.objects.filter(id=authority_id).first()
 
@@ -522,6 +519,7 @@ class TextClassificationViewSet(viewsets.ViewSet):
 
                 return Response(serialized_data)
             except Exception as e:
+                print(e)
                 return Response(
                     {
                         "message": RESPONSE_MESSAGES["TRAINING_MODEL_NOT_EXIST"][

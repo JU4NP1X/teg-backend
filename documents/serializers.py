@@ -37,7 +37,7 @@ class DocumentsSerializer(serializers.ModelSerializer):
         read_only_fields = ("created_at", "updated_at", "created_by", "updated_by")
 
     def get_category(self, obj):
-        categories = obj.categories.all()
+        categories = obj.categories.filter(authority__disabled=False)
         if categories:
             serializer = CategoriesSerializer(categories, many=True)
             return serializer.data
