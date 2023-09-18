@@ -49,6 +49,9 @@ class DocumentsSerializer(serializers.ModelSerializer):
         if self.context.get("request") and self.context["request"].path.endswith(
             f"/{instance.id}/"
         ):
+            Documents.objects.filter(id=instance.id).update(
+                num_of_access=instance.num_of_access + 1
+            )
             if instance.pdf:
                 pdf_base64 = base64.b64encode(instance.pdf).decode("utf-8")
                 representation["pdf"] = pdf_base64

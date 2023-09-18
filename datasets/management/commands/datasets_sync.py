@@ -66,9 +66,9 @@ class Command(BaseCommand):
 
         authorities = options["authorities"]
         if not authorities:
-            authorities = Authorities.objects.filter(active=True)
+            authorities = Authorities.objects.filter(disabled=False)
         else:
-            authorities = Authorities.objects.filter(active=True, id__in=authorities)
+            authorities = Authorities.objects.filter(id__in=authorities)
 
         for authority in tqdm(authorities):
             if options["reset"]:

@@ -33,6 +33,8 @@ class Authorities(models.Model):
     active = models.BooleanField(default=False)
     disabled = models.BooleanField(default=False)
     native = models.BooleanField(default=False)
+    num_documents_classified = models.PositiveIntegerField(default=0)
+    accuracy = models.PositiveIntegerField(default=0)
 
     def save(self, *args, **kwargs):
         from .neural_network.text_classifier import TextClassifier

@@ -11,7 +11,7 @@ from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from utils.response_messages import RESPONSE_MESSAGES
-from categories.models import Categories
+from categories.models import Categories, Authorities
 
 # Language config
 custom_config = f"--oem 3 --psm 6 -l {os.getenv('TESSERACT_ALPHA3', 'eng')}"
@@ -22,14 +22,25 @@ class DocumentsFilter(filters.FilterSet):
     FilterSet for Categories model.
 
     Attributes:
-        deprecated (filters.BooleanFilter): Filter for deprecated field.
-        name (filters.CharFilter): Filter for name field.
-        searched_for_datasets (filters.BooleanFilter): Filter for searched_for_datasets field.
-        label_index (filters.NumberFilter): Filter for label_index field.
-        authority (filters.ModelMultipleChoiceFilter): Filter for authority field.
     """
 
-    categories = filters.CharFilter(method="filter_categories")
+    authorities = filters.ModelChoiceFilter(
+        field_name="categories__authority",
+        queryset=Authorities.objects.all(),
+        distinct=True,
+    )
+    categories = filters.ModelChoiceFilter(
+        field_name="categories",
+        queryset=Categories.objects.all(),
+        distinct=True,
+    )
+    deprecated = filters.BooleanFilter(
+        field_name="categories__deprecated",
+        method="filter_deprecated",
+    )
+
+    def filter_deprecated(self, queryset, name, value):
+        return queryset.filter(categories__deprecated=value).distinct()
 
     def filter_categories(self, queryset, name, value):
         category_ids = value.split(
@@ -39,11 +50,7 @@ class DocumentsFilter(filters.FilterSet):
 
     class Meta:
         model = Documents
-        fields = [
-            "title",
-            "summary",
-            "categories",
-        ]
+        fields = ["title", "summary", "categories", "authorities"]
 
 
 class DocumentsViewSet(viewsets.ModelViewSet):
@@ -68,7 +75,7 @@ class DocumentsViewSet(viewsets.ModelViewSet):
         """
         if self.action in ["create", "update", "partial_update", "destroy"]:
             return [
-                permissions.IsAdminUser()
+                permissions.IsAuthenticated()
             ]  # Only allow access to admin users to make changes
         return super().get_permissions()
 

@@ -27,8 +27,8 @@ class SystemInfoViewSet(viewsets.ViewSet):
         else:
             gpu_name = "N/A"
             gpu_memory_total = 0
-            gpu_memory_used = 0
-            gpu_percent = 0
+            gpu_memory_used = [0]
+            gpu_percent = [0]
 
         # Get RAM information
         ram = psutil.virtual_memory()

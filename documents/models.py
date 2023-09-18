@@ -28,6 +28,7 @@ class Documents(models.Model):
         null=True,
     )
     categories = models.ManyToManyField(Categories)
+    num_of_access = models.PositiveBigIntegerField(default=0)
     pdf = models.BinaryField(
         blank=True,
         null=True,
