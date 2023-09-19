@@ -138,11 +138,12 @@ class OecdScraper:
                     update_categories_tree(result, parent)
             else:
                 trans_key = soup.find("b", text="PC")
-                translation = (
-                    trans_key.find_next_sibling().strip(":").strip().capitalize()
-                )
-                Translations.objects.update_or_create(
-                    language="es",
-                    category=result,
-                    defaults={"name": translation},
-                )
+                if trans_key:
+                    translation = trans_key.find_next_sibling()
+                    if translation:
+                        translation = translation.strip(":").strip().capitalize()
+                        Translations.objects.update_or_create(
+                            language="es",
+                            category=result,
+                            defaults={"name": translation},
+                        )
