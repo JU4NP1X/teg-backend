@@ -30,7 +30,7 @@ def verify_datasets_syncs():
 def verify_authorities():
     from categories.models import Authorities
 
-    for name in ["UNESCO", "ERIC"]:
+    for name in ["UNESCO", "ERIC", "OECD"]:
         Authorities.objects.update_or_create(name=name, defaults={"native": True})
 
 

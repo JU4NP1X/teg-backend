@@ -25,7 +25,7 @@ class EricScraper:
 
     def __init__(self):
         self.base_url = "https://eric.ed.gov"
-        self.alphabet = ""
+        self.alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         self.timeout = 15
         self.authority = Authorities.objects.get(name="ERIC")
 
