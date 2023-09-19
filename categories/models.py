@@ -120,18 +120,20 @@ def create_categories(authority_name, data):
 def update_categories_tree(category, parent=None):
     max_tree_id = Categories.objects.aggregate(Max("tree_id"))["tree_id__max"]
     children = Categories.objects.get(pk=category.id)
-    if parent:
-        parent = Categories.objects.get(pk=parent.id)
-    if children and parent:
-        max_tree_id += 1
-        children.tree_id = max_tree_id
-        children.move_to(parent, "last-child")
-        children.save()
-    elif not parent and children.level != 0:
-        max_tree_id += 1
-        children.tree_id = max_tree_id
-        children.move_to(None, "last-child")
-        children.save()
+
+    if parent.name != children.name:
+        if parent:
+            parent = Categories.objects.get(pk=parent.id)
+        if children and parent:
+            max_tree_id += 1
+            children.tree_id = max_tree_id
+            children.move_to(parent, "last-child")
+            children.save()
+        elif not parent and children.level != 0:
+            max_tree_id += 1
+            children.tree_id = max_tree_id
+            children.move_to(None, "last-child")
+            children.save()
 
     categories_tree_adjust()
 

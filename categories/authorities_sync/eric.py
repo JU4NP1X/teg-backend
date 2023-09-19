@@ -25,7 +25,7 @@ class EricScraper:
 
     def __init__(self):
         self.base_url = "https://eric.ed.gov"
-        self.alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        self.alphabet = ""
         self.timeout = 15
         self.authority = Authorities.objects.get(name="ERIC")
 
@@ -118,20 +118,6 @@ class EricScraper:
 
         soup = BeautifulSoup(response.content, "html.parser")
 
-        # Find the parent categories
-        broader_concept = soup.find("div", text="Broader Terms")
-        if broader_concept:
-            a = broader_concept.find_next_sibling("a")
-            name = a.text.strip()
-            link = a["href"]
-            if not name == "N/A":
-                parent, _ = Categories.objects.update_or_create(
-                    name=name,
-                    authority=self.authority,
-                    defaults={"link": link},
-                )
-                update_categories_tree(result, parent)
-
         # Find the related concepts
         related_concepts = soup.find("div", text="Related Terms")
         if related_concepts:
@@ -143,3 +129,16 @@ class EricScraper:
                 )
                 result.related_categories.add(related)
                 result.save()
+
+        # Find the parent categories
+        broader_concept = soup.find("div", text="Broader Terms")
+        if broader_concept:
+            a = broader_concept.find_next_sibling()
+            if a.name == "a":
+                name = a.text.strip()
+                link = a["href"]
+                parent = Categories.objects.filter(
+                    name__icontains=name,
+                    authority=self.authority,
+                ).first()
+                update_categories_tree(result, parent)
