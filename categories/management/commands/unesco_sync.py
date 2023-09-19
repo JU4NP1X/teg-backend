@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from ...sync import start_scraping
+from ...sync import scrap_unesco
 
 
 class Command(BaseCommand):
@@ -7,4 +7,4 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         # Translations.objects.all().delete()
-        start_scraping()
+        scrap_unesco()

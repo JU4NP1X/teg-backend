@@ -5,6 +5,135 @@ from mptt.models import MPTTModel, TreeForeignKey
 from mptt.managers import TreeManager
 from datetime import datetime, timezone
 from db_mutex.db_mutex import db_mutex
+from django.db import connection
+from django.db.models import Subquery, OuterRef, CharField, Max
+from utils.response_messages import RESPONSE_MESSAGES
+
+
+def execute_query(query):
+    with connection.cursor() as cursor:
+        cursor.execute(query)
+
+
+def categories_tree_adjust():
+    query = """
+        UPDATE categories AS ca
+        SET tree_id = ca2.tree_id, "level" = ca2.level + 1
+        FROM categories AS ca2
+        WHERE ca2.tree_id <> ca.tree_id AND ca2.id = ca.parent_id
+    """
+
+    # Tree correction (there is a bug, that the move_to not update the tree of it chindrens)
+    while True:
+        execute_query(query)
+        rows_affected = connection.cursor().rowcount
+        if rows_affected <= 0:
+            break
+
+    query = """
+        UPDATE categories AS ca
+        SET "level" = 0
+        WHERE ca.deprecated = TRUE
+    """
+
+    execute_query(query)
+
+
+def has_invalid_relation(data):
+    """
+    Crear un diccionario para almacenar los padres de cada elemento
+    """
+    parents = {}
+    names = set()
+
+    # Recorrer los datos y almacenar los padres de cada elemento
+    for row in data:
+        element_id = row["id"]
+        name = row["name"]
+        parent_id = row["parent_id"]
+
+        # Verificar si el elemento ya tiene un padre asignado
+        if element_id in parents:
+            return RESPONSE_MESSAGES["CIRCULAR_RELATIONSHIP"]
+        # Verificar si el nombre del elemento ya ha sido utilizado
+        if name in names:
+            return RESPONSE_MESSAGES["DUPLICATE_NAME"]
+
+        # Almacenar el padre del elemento
+        parents[element_id] = parent_id
+        names.add(name)
+
+        # Verificar si el padre del elemento es el propio elemento (relación circular)
+        if parent_id == element_id:
+            return RESPONSE_MESSAGES["CIRCULAR_RELATIONSHIP"]
+
+        # Verificar si el padre del elemento existe en los datos
+        if parent_id and parent_id not in [row["id"] for row in data]:
+            return RESPONSE_MESSAGES["INVALID_RELATIONSHIP"]
+
+        # Verificar si hay una cadena de padres que forma una relación circular
+        current_parent = parent_id
+        while current_parent != "":
+            if current_parent == element_id:
+                return RESPONSE_MESSAGES["CIRCULAR_RELATIONSHIP"]
+            current_parent = parents.get(current_parent, "")
+
+    return {"code": 200}
+
+
+def create_categories(authority_name, data):
+    """
+    Crear un diccionario para almacenar los padres de cada elemento
+    """
+
+    authority = Authorities.objects.filter(name=authority_name).first()
+    Categories.objects.filter(authority=authority).update(deprecated=True)
+
+    # Recorrer los datos y almacenar los padres de cada elemento
+    for row in data:
+        name = row["name"]
+        translation = row["translation"]
+        category, _ = Categories.objects.update_or_create(
+            name=name,
+            authority=authority,
+            defaults={"deprecated": False},
+        )
+        Translations.objects.update_or_create(
+            category=category, language="es", defaults={"name": translation}
+        )
+
+    for row in data:
+        name = row["name"]
+        parent_id = row["parent_id"]  # Obtén el ID del padre desde los datos
+        category = Categories.objects.filter(name=name, authority=authority).first()
+        parent_name = None
+        for parent_row in data:
+            if parent_row["id"] == parent_id:
+                parent_name = parent_row["name"]
+                break
+        parent = Categories.objects.filter(
+            name=parent_name, authority=authority
+        ).first()  # Busca el padre por su nombre en la base de datos
+        update_categories_tree(category, parent)
+
+
+def update_categories_tree(category, parent=None):
+    max_tree_id = Categories.objects.aggregate(Max("tree_id"))["tree_id__max"]
+    children = Categories.objects.get(pk=category.id)
+    if parent:
+        parent = Categories.objects.get(pk=parent.id)
+    if children and parent:
+        max_tree_id += 1
+        children.tree_id = max_tree_id
+        children.move_to(parent, "last-child")
+        children.save()
+    elif not parent and children.level != 0:
+        max_tree_id += 1
+        children.tree_id = max_tree_id
+        children.move_to(None, "last-child")
+        children.save()
+
+    categories_tree_adjust()
 
 
 class Authorities(models.Model):

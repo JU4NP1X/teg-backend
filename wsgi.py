@@ -30,9 +30,8 @@ def verify_datasets_syncs():
 def verify_authorities():
     from categories.models import Authorities
 
-    authorities = Authorities.objects.filter(name="UNESCO")
-    if not len(authorities):
-        Authorities.objects.create(name="UNESCO")
+    for name in ["UNESCO", "ERIC"]:
+        Authorities.objects.update_or_create(name=name, defaults={"native": True})
 
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tu_proyecto.settings")
