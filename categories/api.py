@@ -411,15 +411,15 @@ class TextClassificationViewSet(viewsets.ViewSet):
                             ],
                         )
 
-                    if authority_id not in settings.TEXT_CLASSIFIERS:
+                    if str(authority_id) not in settings.TEXT_CLASSIFIERS:
                         text_classifier = settings.TEXT_CLASSIFIERS[
-                            authority_id
+                            str(authority_id)
                         ] = TextClassifier(
                             authority_id=authority_id,
                             loaded_at=datetime.now(timezone.utc),
                         )
                     else:
-                        text_classifier = settings.TEXT_CLASSIFIERS[authority_id]
+                        text_classifier = settings.TEXT_CLASSIFIERS[str(authority_id)]
 
                     # Check if the classifier needs to be reloaded
                     if text_classifier.loaded_at < authority.last_training_date:
@@ -427,7 +427,7 @@ class TextClassificationViewSet(viewsets.ViewSet):
                             authority_id=authority_id,
                             loaded_at=datetime.now(timezone.utc),
                         )
-                        settings.TEXT_CLASSIFIERS[authority_id] = text_classifier
+                        settings.TEXT_CLASSIFIERS[str(authority_id)] = text_classifier
 
                     try:
                         # Translate the title to English
