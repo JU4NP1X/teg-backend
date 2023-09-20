@@ -1,4 +1,5 @@
 import base64
+import subprocess
 from django.db import models
 from django.core.files.base import ContentFile
 from users.models import User
@@ -69,9 +70,28 @@ class Documents(models.Model):
             *args: Variable length argument list.
             **kwargs: Keyword arguments.
         """
+        from datasets.models import Datasets, DatasetsEnglishTranslations
+
         self.convert_pdf_to_binary()
         self.convert_img_to_binary()
+
         super().save(*args, **kwargs)
+        dataset, created = Datasets.objects.update_or_create(
+            paper_name=self.title, summary=self.summary
+        )
+
+        dataset.categories = self.categories
+        dataset.save()
+        if not created:
+            DatasetsEnglishTranslations.objects.filter(dataset=dataset).delete()
+
+        subprocess.Popen(
+            [
+                "python",
+                "./manage.py",
+                "translate_datasets",
+            ]
+        )
 
     def convert_pdf_to_binary(self):
         """
