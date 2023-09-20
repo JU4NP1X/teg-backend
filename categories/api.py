@@ -22,7 +22,7 @@ import base64
 import csv
 import subprocess
 from datetime import datetime, timezone
-from threading import Lock
+from db_mutex import DBMutexError
 from django.conf import settings
 from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
@@ -391,56 +391,68 @@ class TextClassificationViewSet(viewsets.ViewSet):
                 status=RESPONSE_MESSAGES["TRAINING_MODEL_NOT_EXIST"]["code"],
             )
 
-        with db_mutex(authority_id):
-            # Check if the text_classifier exists
-            authority = Authorities.objects.filter(id=authority_id).first()
-
-            if not authority.last_training_date:
-                return Response(
-                    {
-                        "message": RESPONSE_MESSAGES["TRAINING_MODEL_NOT_EXIST"][
-                            "message"
-                        ]
-                    },
-                    status=RESPONSE_MESSAGES["TRAINING_MODEL_NOT_EXIST"]["code"],
-                )
-
-            if authority_id not in settings.TEXT_CLASSIFIERS:
-                text_classifier = settings.TEXT_CLASSIFIERS[
-                    authority_id
-                ] = TextClassifier(
-                    authority_id=authority_id, loaded_at=datetime.now(timezone.utc)
-                )
-            else:
-                text_classifier = settings.TEXT_CLASSIFIERS[authority_id]
-
-            # Check if the classifier needs to be reloaded
-            if text_classifier.loaded_at < authority.last_training_date:
-                text_classifier = TextClassifier(
-                    authority_id=authority_id, loaded_at=datetime.now(timezone.utc)
-                )
-                settings.TEXT_CLASSIFIERS[authority_id] = text_classifier
-
+        try_again = True
+        while try_again:
+            try_again = False
             try:
-                # Translate the title to English
-                translator = GoogleTranslator()
-                predicted_labels = text_classifier.classify_text(
-                    translator.translate(f"{title}: {summary}", dest="en").text
-                )
-                serializer = CategoriesSerializer(predicted_labels, many=True)
-                serialized_data = serializer.data
+                with db_mutex(authority_id):
+                    # Check if the text_classifier exists
+                    authority = Authorities.objects.filter(id=authority_id).first()
 
-                return Response(serialized_data)
-            except Exception as e:
-                print(e)
-                return Response(
-                    {
-                        "message": RESPONSE_MESSAGES["TRAINING_MODEL_NOT_EXIST"][
-                            "message"
-                        ]
-                    },
-                    status=RESPONSE_MESSAGES["TRAINING_MODEL_NOT_EXIST"]["code"],
-                )
+                    if not authority.last_training_date:
+                        return Response(
+                            {
+                                "message": RESPONSE_MESSAGES[
+                                    "TRAINING_MODEL_NOT_EXIST"
+                                ]["message"]
+                            },
+                            status=RESPONSE_MESSAGES["TRAINING_MODEL_NOT_EXIST"][
+                                "code"
+                            ],
+                        )
+
+                    if authority_id not in settings.TEXT_CLASSIFIERS:
+                        text_classifier = settings.TEXT_CLASSIFIERS[
+                            authority_id
+                        ] = TextClassifier(
+                            authority_id=authority_id,
+                            loaded_at=datetime.now(timezone.utc),
+                        )
+                    else:
+                        text_classifier = settings.TEXT_CLASSIFIERS[authority_id]
+
+                    # Check if the classifier needs to be reloaded
+                    if text_classifier.loaded_at < authority.last_training_date:
+                        text_classifier = TextClassifier(
+                            authority_id=authority_id,
+                            loaded_at=datetime.now(timezone.utc),
+                        )
+                        settings.TEXT_CLASSIFIERS[authority_id] = text_classifier
+
+                    try:
+                        # Translate the title to English
+                        translator = GoogleTranslator()
+                        predicted_labels = text_classifier.classify_text(
+                            translator.translate(f"{title}: {summary}", dest="en").text
+                        )
+                        serializer = CategoriesSerializer(predicted_labels, many=True)
+                        serialized_data = serializer.data
+
+                        return Response(serialized_data)
+                    except Exception as e:
+                        print(e)
+                        return Response(
+                            {
+                                "message": RESPONSE_MESSAGES[
+                                    "TRAINING_MODEL_NOT_EXIST"
+                                ]["message"]
+                            },
+                            status=RESPONSE_MESSAGES["TRAINING_MODEL_NOT_EXIST"][
+                                "code"
+                            ],
+                        )
+            except DBMutexError:
+                try_again = True
 
 
 class TrainAuthorityViewSet(viewsets.ViewSet):

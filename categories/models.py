@@ -6,7 +6,8 @@ from mptt.managers import TreeManager
 from datetime import datetime, timezone
 from db_mutex.db_mutex import db_mutex
 from django.db import connection
-from django.db.models import Subquery, OuterRef, CharField, Max
+from django.db.models import Max
+from db_mutex import DBMutexError
 from utils.response_messages import RESPONSE_MESSAGES
 
 
@@ -118,24 +119,33 @@ def create_categories(authority_name, data):
 
 
 def update_categories_tree(category, parent=None):
-    max_tree_id = Categories.objects.aggregate(Max("tree_id"))["tree_id__max"]
-    children = Categories.objects.get(pk=category.id)
+    try_again = True
+    while try_again:
+        try_again = False
+        try:
+            with db_mutex("tree_adjust"):
+                max_tree_id = Categories.objects.aggregate(Max("tree_id"))[
+                    "tree_id__max"
+                ]
+                children = Categories.objects.get(pk=category.id)
 
-    if parent.name != children.name:
-        if parent:
-            parent = Categories.objects.get(pk=parent.id)
-        if children and parent:
-            max_tree_id += 1
-            children.tree_id = max_tree_id
-            children.move_to(parent, "last-child")
-            children.save()
-        elif not parent and children.level != 0:
-            max_tree_id += 1
-            children.tree_id = max_tree_id
-            children.move_to(None, "last-child")
-            children.save()
+                if parent.name != children.name:
+                    if parent:
+                        parent = Categories.objects.get(pk=parent.id)
+                    if children and parent:
+                        max_tree_id += 1
+                        children.tree_id = max_tree_id
+                        children.move_to(parent, "last-child")
+                        children.save()
+                    elif not parent and children.level != 0:
+                        max_tree_id += 1
+                        children.tree_id = max_tree_id
+                        children.move_to(None, "last-child")
+                        children.save()
 
-    categories_tree_adjust()
+                categories_tree_adjust()
+        except DBMutexError:
+            try_again = True
 
 
 class Authorities(models.Model):
@@ -173,15 +183,22 @@ class Authorities(models.Model):
         if self.pk:  # Check if the instance already exists in the database
             original_instance = Authorities.objects.get(pk=self.pk)
             if original_instance.active != self.active:  # Check if 'active' has changed
-                with db_mutex(str(self.pk)):
-                    if not self.active:
-                        settings.TEXT_CLASSIFIERS[str(self.pk)] = None
-                    else:
-                        settings.TEXT_CLASSIFIERS[str(self.pk)] = TextClassifier(
-                            authority_id=str(self.pk),
-                            loaded_at=datetime.now(timezone.utc),
-                        )
-                    gc.collect()
+                try_again = True
+                while try_again:
+                    try:
+                        with db_mutex(str(self.pk)):
+                            if not self.active:
+                                settings.TEXT_CLASSIFIERS[str(self.pk)] = None
+                            else:
+                                settings.TEXT_CLASSIFIERS[
+                                    str(self.pk)
+                                ] = TextClassifier(
+                                    authority_id=str(self.pk),
+                                    loaded_at=datetime.now(timezone.utc),
+                                )
+                            gc.collect()
+                    except DBMutexError:
+                        try_again = True
 
         super().save(*args, **kwargs)
 
