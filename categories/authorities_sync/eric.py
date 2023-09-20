@@ -1,7 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
-from django.db.models import Q
+from googletrans import Translator as GoogleTranslator
 from categories.models import (
     Categories,
     Translations,
@@ -11,6 +11,7 @@ from categories.models import (
 from django.db import connection
 
 requests.packages.urllib3.disable_warnings()
+translator = GoogleTranslator()
 
 
 class EricScraper:
@@ -142,3 +143,10 @@ class EricScraper:
                     authority=self.authority,
                 ).first()
                 update_categories_tree(result, parent)
+
+        translation = translator.translate(result.name, dest="es").text
+        Translations.objects.update_or_create(
+            language="es",
+            category=result,
+            defaults={"name": translation},
+        )
