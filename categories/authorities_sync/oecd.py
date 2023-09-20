@@ -43,7 +43,7 @@ class OecdScraper:
 
         results_2_detail = (
             Categories.objects.filter(authority=self.authority)
-            .filter(parent=None, deprecated=False)
+            .filter(deprecated=False)
             .exclude(link="")
         )
         for result in tqdm(results_2_detail, desc="Getting details"):
@@ -135,7 +135,14 @@ class OecdScraper:
                         name__icontains=name,
                         authority=self.authority,
                     ).first()
-                    update_categories_tree(result, parent)
+                    if parent and parent.deprecated:
+                        update_categories_tree(result, parent.parent)
+                    else:
+                        update_categories_tree(result, parent)
+
+                deprecated = soup.find("b", text="USE")
+                if deprecated:
+                    Categories.objects.filter(pk=result.id).update(deprecated=True)
             else:
                 trans_key = soup.find("b", text="PC")
                 if trans_key:
