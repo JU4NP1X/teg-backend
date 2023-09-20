@@ -139,9 +139,10 @@ class OecdScraper:
             else:
                 trans_key = soup.find("b", text="PC")
                 if trans_key:
-                    translation = trans_key.find_next_sibling()
+                    translation = (
+                        trans_key.find_parent().text.strip("PC:").strip().capitalize()
+                    )
                     if translation:
-                        translation = translation.strip(":").strip().capitalize()
                         Translations.objects.update_or_create(
                             language="es",
                             category=result,

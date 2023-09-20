@@ -142,7 +142,6 @@ class Classifier:
 
         trainer = pl.Trainer(
             max_epochs=self.config["n_epochs"],
-            precision=16,
             num_sanity_val_steps=1,
             callbacks=[
                 checkpoint_callback,
@@ -151,8 +150,7 @@ class Classifier:
         )
 
         # trainer.fit(self.model, datamodule=data_module, ckpt_path=checkpoint_path)
-        # if not trainer.interrupted:
-        if True:
+        if not trainer.interrupted:
             state_dict = self.model.state_dict()
             torch.save(state_dict, f"{self.best_model_path}/model_weights.pt")
 
