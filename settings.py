@@ -63,7 +63,7 @@ MIDDLEWARE = [
 ]
 
 REST_FRAMEWORK = {
-    "DEFAULT_API_TITLE": "VoCo UC API",
+    "DEFAULT_API_TITLE": "UC Voc API",
     "DEFAULT_API_DESCRIPTION": "API of the standarized text classification of the Carabobo University",
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",

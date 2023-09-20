@@ -105,9 +105,17 @@ class TranslationsFilter(filters.FilterSet):
     )
     exclude = filters.BaseInFilter(field_name="id", lookup_expr="in", exclude=True)
 
+    deprecated = filters.BooleanFilter(
+        field_name="category__deprecated",
+        method="filter_deprecated",
+    )
+
     class Meta:
         model = Translations
         fields = ["name", "language", "authority"]
+
+    def filter_deprecated(self, queryset, name, value):
+        return queryset.filter(category__deprecated=value).distinct()
 
 
 class AuthorityFilter(filters.FilterSet):
