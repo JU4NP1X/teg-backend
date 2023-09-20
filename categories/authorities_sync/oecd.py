@@ -79,7 +79,7 @@ class OecdScraper:
                 Categories.objects.update_or_create(
                     name=name,
                     authority=self.authority,
-                    defaults={"link": link, "deprecated": False},
+                    defaults={"link": link},
                 )
 
     def get_details(self, result):
@@ -143,6 +143,8 @@ class OecdScraper:
                 deprecated = soup.find("b", text="USE")
                 if deprecated:
                     Categories.objects.filter(pk=result.id).update(deprecated=True)
+                else:
+                    Categories.objects.filter(pk=result.id).update(deprecated=False)
             else:
                 trans_key = soup.find("b", text="PC")
                 if trans_key:
