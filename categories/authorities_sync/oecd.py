@@ -8,7 +8,9 @@ from categories.models import (
     Authorities,
     update_categories_tree,
 )
-from django.db import connection
+import hunspell
+
+dic = hunspell.HunSpell("es_ANY.dic", "es_ANY.aff")
 
 requests.packages.urllib3.disable_warnings()
 
@@ -146,9 +148,13 @@ class OecdScraper:
                     translation = (
                         trans_key.find_parent().text.strip("PC:").strip().capitalize()
                     )
+
                     if translation:
-                        Translations.objects.update_or_create(
-                            language="es",
-                            category=result,
-                            defaults={"name": translation},
-                        )
+                        correction = dic.suggest(translation)
+
+                        if len(correction):
+                            Translations.objects.update_or_create(
+                                language="es",
+                                category=correction[0].capitalize(),
+                                defaults={"name": translation},
+                            )

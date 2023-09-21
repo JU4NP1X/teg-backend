@@ -6,7 +6,6 @@ from mptt.managers import TreeManager
 from datetime import datetime, timezone
 from db_mutex.db_mutex import db_mutex
 from django.db import connection
-from django.db.models import Max
 from django.core.validators import MaxValueValidator
 from db_mutex import DBMutexError
 from utils.response_messages import RESPONSE_MESSAGES
@@ -26,11 +25,7 @@ def categories_tree_adjust():
     """
 
     # Tree correction (there is a bug, that the move_to not update the tree of it chindrens)
-    while True:
-        execute_query(query)
-        rows_affected = connection.cursor().rowcount
-        if rows_affected <= 0:
-            break
+    execute_query(query)
 
     query = """
         UPDATE categories AS ca
@@ -136,7 +131,7 @@ def update_categories_tree(category, parent=None):
                     if parent.name == children.name:
                         return
 
-                if children and parent and children.parent.id != parent.id:
+                if children.parent and parent and children.parent.id != parent.id:
                     children.tree_id = free_tree_id
                     children.lft = 0
                     children.rght = 0

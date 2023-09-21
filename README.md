@@ -23,19 +23,25 @@ This guide will walk you through the steps to set up and launch your Django back
     source myenv/bin/activate
     ```
 
-3.  Install postgress drivers:
+3.  Install text corrector library for C:
+
+    ```shell
+    sudo apt-get install libhunspell-dev
+    ```
+
+4.  Install postgress drivers:
 
     ```shell
     sudo apt install libpq-dev
     ```
 
-4.  Install the required packages:
+5.  Install the required packages:
 
     ```shell
     pip install -r requirements.txt
     ```
 
-5.  Install Tesseract OCR:
+6.  Install Tesseract OCR:
 
     - Ubuntu:
 
