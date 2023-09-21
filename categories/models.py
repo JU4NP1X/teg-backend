@@ -240,7 +240,7 @@ class Categories(MPTTModel):
     lft = models.PositiveBigIntegerField(default=0)
     rght = models.PositiveBigIntegerField(default=0)
     tree_id = models.PositiveBigIntegerField(
-        default=0, validators=[MaxValueValidator(99999999)], max_length=999999999
+        default=0, validators=[MaxValueValidator(99999999)]
     )
     objects = TreeManager()
 
