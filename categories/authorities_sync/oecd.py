@@ -150,6 +150,16 @@ class OecdScraper:
                     )
 
                     if translation:
+                        if len(translation) < 4:
+                            trans_key = soup.find("b", text="NA")
+                            if trans_key:
+                                translation = (
+                                    trans_key.find_parent()
+                                    .text.strip("NA:")
+                                    .strip()
+                                    .capitalize()
+                                )
+
                         correction = dic.suggest(translation)
 
                         if len(correction):
