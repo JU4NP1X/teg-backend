@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from db_mutex.db_mutex import db_mutex
 from django.db import connection
 from django.db.models import Max
+from django.core.validators import MaxValueValidator
 from db_mutex import DBMutexError
 from utils.response_messages import RESPONSE_MESSAGES
 
@@ -124,9 +125,10 @@ def update_categories_tree(category, parent=None):
         try_again = False
         try:
             with db_mutex("tree_adjust"):
-                max_tree_id = Categories.objects.aggregate(Max("tree_id"))[
-                    "tree_id__max"
-                ]
+                free_tree_id = 1
+                while Categories.objects.filter(tree_id=free_tree_id).count():
+                    free_tree_id += 1
+
                 children = Categories.objects.get(pk=category.id)
 
                 if parent:
@@ -135,13 +137,11 @@ def update_categories_tree(category, parent=None):
                         return
 
                 if children and parent:
-                    max_tree_id += 1
-                    children.tree_id = max_tree_id
+                    children.tree_id = free_tree_id
                     children.move_to(parent, "last-child")
                     children.save()
                 elif not parent and children.level != 0:
-                    max_tree_id += 1
-                    children.tree_id = max_tree_id
+                    children.tree_id = free_tree_id
                     children.move_to(None, "last-child")
                     children.save()
 
@@ -169,6 +169,7 @@ class Authorities(models.Model):
     theoretical_precision = models.DecimalField(
         max_digits=5, decimal_places=2, default=0
     )
+    practical_precision = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES, default="NOT_TRAINED"
     )
@@ -177,7 +178,6 @@ class Authorities(models.Model):
     disabled = models.BooleanField(default=False)
     native = models.BooleanField(default=False)
     num_documents_classified = models.PositiveIntegerField(default=0)
-    accuracy = models.PositiveIntegerField(default=0)
 
     def save(self, *args, **kwargs):
         from .neural_network.text_classifier import TextClassifier
@@ -232,10 +232,12 @@ class Categories(MPTTModel):
     related_categories = models.ManyToManyField("self", blank=True)
     searched_for_datasets = models.BooleanField(default=False)
 
-    level = models.PositiveIntegerField(default=0)
-    lft = models.PositiveIntegerField(default=0)
-    rght = models.PositiveIntegerField(default=0)
-    tree_id = models.PositiveIntegerField(default=0)
+    level = models.PositiveBigIntegerField(default=0)
+    lft = models.PositiveBigIntegerField(default=0)
+    rght = models.PositiveBigIntegerField(default=0)
+    tree_id = models.PositiveBigIntegerField(
+        default=0, validators=[MaxValueValidator(9999999999)]
+    )
     objects = TreeManager()
 
     def __str__(self):

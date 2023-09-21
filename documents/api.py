@@ -66,6 +66,52 @@ class DocumentsViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.AllowAny]
     serializer_class = DocumentsSerializer
 
+    def create(self, request):
+        serializer = DocumentsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        predicted_categories = serializer.validated_data["predicted_trees"]
+        categories = serializer.validated_data["categories"]
+        self.authority_precition_calc(predicted_categories, categories)
+
+        return super().create(request)
+
+    def authority_precition_calc(self, predicted_categories, categories_selected):
+        predicted_authority_ids = [
+            category["authority_id"] for category in predicted_categories
+        ]
+        predicted_tree_ids = [category["tree_id"] for category in predicted_categories]
+
+        predicted_authorities = Authorities.objects.filter(
+            id__in=predicted_authority_ids
+        ).distinct()
+
+        for authority in predicted_authorities:
+            category_match = 0
+            category_not_match = 0
+
+            for category in categories_selected:
+                if category.authority_id == authority.id and category.level == 0:
+                    if category.tree_id in predicted_tree_ids:
+                        category_match += 1
+                    else:
+                        category_not_match += 1
+
+            if category_match or category_not_match:
+                new_accuracy_fragment = (
+                    category_match
+                    / (category_match + category_not_match)
+                    * 100
+                    / (authority.num_documents_classified + 1)
+                )
+                current_accuray = (
+                    authority.accuracy
+                    * authority.num_documents_classified
+                    / (authority.num_documents_classified + 1)
+                )
+                authority.num_documents_classified += 1
+                authority.accuracy = current_accuray + new_accuracy_fragment
+                authority.save()
+
     def get_permissions(self):
         """
         Get the permissions required for the current action.

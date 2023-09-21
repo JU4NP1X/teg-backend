@@ -31,10 +31,23 @@ class DocumentsSerializer(serializers.ModelSerializer):
 
     category = serializers.SerializerMethodField()
 
+    predicted_trees = serializers.MultipleChoiceField(
+        choices=Categories.objects.filter(
+            deprecated=False, parent=None, level=0
+        ).values_list("tree_id", "name"),
+        write_only=True,
+    )
+
     class Meta:
         model = Documents
         fields = "__all__"
-        read_only_fields = ("created_at", "updated_at", "created_by", "updated_by")
+        read_only_fields = (
+            "created_at",
+            "updated_at",
+            "created_by",
+            "updated_by",
+            "num_of_access",
+        )
 
     def get_category(self, obj):
         categories = obj.categories.filter(authority__disabled=False)
@@ -60,6 +73,57 @@ class DocumentsSerializer(serializers.ModelSerializer):
             img_base64 = base64.b64encode(instance.img).decode("utf-8")
             representation["img"] = img_base64
         return representation
+
+    def create(self, validated_data):
+        # Obtener el array de números adicional
+        predicted_trees = self.context.get("predicted_trees")
+
+        # Validar que todos los elementos sean números
+        for num in predicted_trees:
+            if not isinstance(num, (int, float)):
+                raise serializers.ValidationError(
+                    "The array must contain only numbers."
+                )
+
+        validated_data["predicted_trees"] = predicted_trees
+
+        instance = super().create(validated_data)
+
+        return instance
+
+    def update(self, validated_data):
+        # Obtener el array de números adicional
+        predicted_trees = self.context.get("predicted_trees")
+
+        # Validar que todos los elementos sean números
+        for num in predicted_trees:
+            if not isinstance(num, (int, float)):
+                raise serializers.ValidationError(
+                    "The array must contain only numbers."
+                )
+
+        validated_data["predicted_trees"] = predicted_trees
+
+        instance = super().create(validated_data)
+
+        return instance
+
+    def partial_update(self, validated_data):
+        # Obtener el array de números adicional
+        predicted_trees = self.context.get("predicted_trees")
+
+        # Validar que todos los elementos sean números
+        for num in predicted_trees:
+            if not isinstance(num, (int, float)):
+                raise serializers.ValidationError(
+                    "The array must contain only numbers."
+                )
+
+        validated_data["predicted_trees"] = predicted_trees
+
+        instance = super().create(validated_data)
+
+        return instance
 
 
 class DocumentsTextExtractorSerializer(serializers.Serializer):
