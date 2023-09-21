@@ -136,12 +136,16 @@ def update_categories_tree(category, parent=None):
                     if parent.name == children.name:
                         return
 
-                if children and parent:
+                if children and parent and children.parent.id != parent.id:
                     children.tree_id = free_tree_id
+                    children.lft = 0
+                    children.rght = 0
                     children.move_to(parent, "last-child")
                     children.save()
                 elif not parent and children.level != 0:
                     children.tree_id = free_tree_id
+                    children.lft = 0
+                    children.rght = 0
                     children.move_to(None, "last-child")
                     children.save()
 
@@ -236,7 +240,7 @@ class Categories(MPTTModel):
     lft = models.PositiveBigIntegerField(default=0)
     rght = models.PositiveBigIntegerField(default=0)
     tree_id = models.PositiveBigIntegerField(
-        default=0, validators=[MaxValueValidator(9999999999)]
+        default=0, validators=[MaxValueValidator(99999999)], max_length=999999999
     )
     objects = TreeManager()
 
