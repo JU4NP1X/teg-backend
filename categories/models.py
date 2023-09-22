@@ -146,7 +146,8 @@ def update_categories_tree(category, parent=None):
                     children.save()
 
                 categories_tree_adjust()
-        except DBMutexError:
+        except DBMutexError as e:
+            print(e)
             try_again = True
 
 

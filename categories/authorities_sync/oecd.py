@@ -25,7 +25,7 @@ class OecdScraper:
 
     def __init__(self):
         self.base_url = "https://bibliotecavirtual.clacso.org.ar/ar/oecd-macroth"
-        self.alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        self.alphabet = ""
         self.timeout = 15
         self.authority = Authorities.objects.get(name="OECD")
 
@@ -89,14 +89,9 @@ class OecdScraper:
         Args:
             result (Categories): The result to get the details for.
         """
-        link = result.link
-        if link == "":
-            return
-        if link and link[0] == "/":
-            link = link[1:]
 
         for lang in ["en", "es"]:
-            url = f"{self.base_url}/{lang}/{link}"
+            url = f"{self.base_url}/{lang}/{result.link}"
 
             try:
                 response = requests.get(url, timeout=self.timeout, verify=False)

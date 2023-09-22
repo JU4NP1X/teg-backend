@@ -130,38 +130,13 @@ class AuthoritySerializer(serializers.ModelSerializer):
                                         categories__deprecated=False,
                                     )
                                     .values("categories__tree_id")
-                                    .annotate(count=Count("id", distinct=True))
+                                    .annotate(count=Count("id"))
                                     .values("count")
                                 ),
                                 0,
                             ),
                         )
                         .filter(total_datasets__gte=10)
-                        .count(),
-                        0,
-                        output_field=IntegerField(),
-                    ),
-                    not_representated_category_count=Coalesce(
-                        Categories.objects.filter(
-                            deprecated=False,
-                            parent=None,
-                            authority__id=obj.id,
-                        )
-                        .annotate(
-                            total_datasets=Coalesce(
-                                Subquery(
-                                    Datasets.objects.filter(
-                                        categories__tree_id=OuterRef("tree_id"),
-                                        categories__deprecated=False,
-                                    )
-                                    .values("categories__tree_id")
-                                    .annotate(count=Count("id", distinct=True))
-                                    .values("count")
-                                ),
-                                0,
-                            ),
-                        )
-                        .filter(total_datasets__lt=10)
                         .count(),
                         0,
                         output_field=IntegerField(),
@@ -173,7 +148,6 @@ class AuthoritySerializer(serializers.ModelSerializer):
                     "category_not_trained_count",
                     "deprecated_category_trained_count",
                     "representated_category_count",
-                    "not_representated_category_count",
                 )
                 .first()
             )
