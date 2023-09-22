@@ -197,13 +197,13 @@ class OecdScraper:
                         correction = correction.strip()
 
                         if len(correction):
-                            Translations.objects.update_or_create(
+                            Translations.objects.get_or_create(
                                 language="es",
                                 category=result,
                                 defaults={"name": correction},
                             )
                         else:
-                            Translations.objects.update_or_create(
+                            Translations.objects.get_or_create(
                                 language="es",
                                 category=result,
                                 defaults={"name": translation.strip()},

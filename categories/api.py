@@ -306,7 +306,16 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
                         {"message": response["message"]},
                         status=response["code"],
                     )
-                create_categories(name, csv_data_list)
+                if instance.native:
+                    for element in csv_data_list:
+                        Translations.objects.filter(
+                            category_id=element["id"],
+                            lang="es",
+                            name=element["translation"],
+                        )
+
+                else:
+                    create_categories(name, csv_data_list)
 
             except (TypeError, ValueError, UnicodeDecodeError) as e:
                 print(e)

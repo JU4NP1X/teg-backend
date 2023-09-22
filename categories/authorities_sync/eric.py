@@ -145,7 +145,7 @@ class EricScraper:
                 update_categories_tree(result, parent)
 
         translation = translator.translate(result.name, dest="es").text
-        Translations.objects.update_or_create(
+        Translations.objects.get_or_create(
             language="es",
             category=result,
             defaults={"name": translation},
