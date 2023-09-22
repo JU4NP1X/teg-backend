@@ -122,21 +122,7 @@ class AuthoritySerializer(serializers.ModelSerializer):
                             parent=None,
                             authority__id=obj.id,
                         )
-                        .annotate(
-                            total_datasets=Coalesce(
-                                Subquery(
-                                    Datasets.objects.filter(
-                                        categories__tree_id=OuterRef("tree_id"),
-                                        categories__deprecated=False,
-                                    )
-                                    .values("categories__tree_id")
-                                    .annotate(count=Count("id"))
-                                    .values("count")
-                                ),
-                                0,
-                            ),
-                        )
-                        .filter(total_datasets__gte=10)
+                        .exclude(datasets=None)
                         .count(),
                         0,
                         output_field=IntegerField(),

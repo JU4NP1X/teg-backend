@@ -82,7 +82,7 @@ class DatasetSyncViewSet(viewsets.ViewSet):
         authorities_without_pid = Authorities.objects.filter(
             id__in=authorities_ids, pid=0
         )
-        authorities_without_pid.update(status="GETTING_DATA")
+        authorities_without_pid.update(status="GETTING_DATA", percentage=0)
 
         authorities_ids_str = " ".join(str(id) for id in authorities_ids)
         subprocess.Popen(
