@@ -1,7 +1,9 @@
 import requests
 import os
+import re
 from bs4 import BeautifulSoup
 from tqdm import tqdm
+from unidecode import unidecode
 import hunspell
 from django.db.models import Q
 from categories.models import (
@@ -151,31 +153,58 @@ class OecdScraper:
                 trans_key = soup.find("b", text="PC")
                 if trans_key:
                     translation = (
-                        trans_key.find_parent().text.strip("PC:").strip().capitalize()
+                        trans_key.find_parent()
+                        .text.replace("PC:", "")
+                        .strip()
+                        .capitalize()
                     )
 
                     if translation:
                         if len(translation) < 4:
                             trans_key = soup.find("b", text="NA")
                             if trans_key:
-                                translation = (
-                                    trans_key.find_parent()
-                                    .text.strip("NA:")
-                                    .strip()
-                                    .capitalize()
-                                )
+                                translation = soup.get_text().strip()
+                                translation = re.search(
+                                    r"NA: (.+?)\n", translation
+                                ).group(1)
+                                translation = translation.strip(".").lower()
 
-                        correction = dic.suggest(translation)
+                        words = translation.split()
+
+                        correction = ""
+                        for word in words:
+                            if correction == "":
+                                suggestions = dic.suggest(word.capitalize())
+                            else:
+                                suggestions = dic.suggest(word.lower())
+                            finded = False
+                            if len(suggestions):
+                                for suggestion in suggestions:
+                                    if unidecode(suggestion).lower() == word.lower():
+                                        finded = True
+                                        break
+                            if not finded:
+                                if len(word) > 1 and len(word) < 7:
+                                    suggestion = word.upper()
+                                else:
+                                    suggestion = word.lower()
+
+                            if correction == "":
+                                suggestion = suggestion[0].upper() + suggestion[1:]
+
+                            correction = correction + " " + suggestion
+
+                        correction = correction.strip()
 
                         if len(correction):
                             Translations.objects.update_or_create(
                                 language="es",
                                 category=result,
-                                defaults={"name": correction[0].capitalize()},
+                                defaults={"name": correction},
                             )
                         else:
                             Translations.objects.update_or_create(
                                 language="es",
                                 category=result,
-                                defaults={"name": translation},
+                                defaults={"name": translation.strip()},
                             )
