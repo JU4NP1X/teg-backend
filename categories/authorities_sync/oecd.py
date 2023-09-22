@@ -1,6 +1,8 @@
 import requests
+import os
 from bs4 import BeautifulSoup
 from tqdm import tqdm
+import hunspell
 from django.db.models import Q
 from categories.models import (
     Categories,
@@ -8,9 +10,12 @@ from categories.models import (
     Authorities,
     update_categories_tree,
 )
-import hunspell
 
-dic = hunspell.HunSpell("es_ANY.dic", "es_ANY.aff")
+BASE_DIR = os.path.dirname(os.path.realpath(__name__))
+
+dic = hunspell.HunSpell(
+    f"{BASE_DIR}/dictionary/es_ANY.dic", f"{BASE_DIR}/dictionary/es_ANY.aff"
+)
 
 requests.packages.urllib3.disable_warnings()
 
@@ -165,6 +170,12 @@ class OecdScraper:
                         if len(correction):
                             Translations.objects.update_or_create(
                                 language="es",
-                                category=correction[0].capitalize(),
+                                category=result,
+                                defaults={"name": correction[0].capitalize()},
+                            )
+                        else:
+                            Translations.objects.update_or_create(
+                                language="es",
+                                category=result,
                                 defaults={"name": translation},
                             )

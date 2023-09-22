@@ -27,6 +27,7 @@ This guide will walk you through the steps to set up and launch your Django back
 
     ```shell
     sudo apt-get install libhunspell-dev
+    sudo cp dictionary/es_ANY.dic dictionary/es_ANY.aff /usr/share/hunspell/
     ```
 
 4.  Install postgress drivers:
