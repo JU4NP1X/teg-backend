@@ -4,6 +4,7 @@ Class for scraping datasets based on category and universities.
 import re
 import time
 import requests
+import subprocess
 from langdetect import detect
 from tqdm import tqdm
 from googletrans import Translator as GoogleTranslator
@@ -356,3 +357,13 @@ class CreateMissingTranslations:
         else:
             translated_text = title
         return translated_text
+
+
+def start_scraping():
+    subprocess.Popen(
+        [
+            "python",
+            "./manage.py",
+            "datasets_sync",
+        ]
+    )

@@ -157,7 +157,16 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-CRONJOBS = [("0 0 * * 6", "categories.sync.start_scraping")]
+CRONJOBS = [
+    (
+        os.getenv("CATEGORIES_SCRAPER_CRONJON"),
+        "categories.sync.start_scraping",
+    ),
+    (
+        os.getenv("DATASETS_SCRAPER_CRONJON"),
+        "datasets.sync.start_scraping",
+    ),
+]
 
 
 TEXT_CLASSIFIERS = {}

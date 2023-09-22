@@ -66,7 +66,7 @@ class Command(BaseCommand):
 
         authorities = options["authorities"]
         if not authorities:
-            authorities = Authorities.objects.filter(disabled=False)
+            authorities = Authorities.objects.filter(auto_sync=True)
         else:
             authorities = Authorities.objects.filter(id__in=authorities)
 

@@ -177,6 +177,7 @@ class Authorities(models.Model):
     active = models.BooleanField(default=False)
     disabled = models.BooleanField(default=False)
     native = models.BooleanField(default=False)
+    auto_sync = models.BooleanField(default=True)
     num_documents_classified = models.PositiveIntegerField(default=0)
 
     def save(self, *args, **kwargs):
