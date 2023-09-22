@@ -49,6 +49,7 @@ hstspreload==2023.1.1
 httpcore==0.9.1
 httpx==0.13.3
 huggingface-hub==0.16.4
+hunspell
 hyperframe==5.2.0
 idna==2.10
 imbalanced-learn==0.11.0

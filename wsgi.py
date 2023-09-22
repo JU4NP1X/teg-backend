@@ -34,6 +34,12 @@ def verify_authorities():
         Authorities.objects.update_or_create(name=name, defaults={"native": True})
 
 
+def reset_mutex():
+    from db_mutex.models import DBMutex
+
+    DBMutex.objects.all().delete()
+
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tu_proyecto.settings")
 
 application = get_wsgi_application()
@@ -41,3 +47,4 @@ application = get_wsgi_application()
 # Llama a la función de verificación del servicio después de que se inicie la aplicación
 verify_datasets_syncs()
 verify_authorities()
+reset_mutex()

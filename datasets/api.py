@@ -72,38 +72,29 @@ class DatasetSyncViewSet(viewsets.ViewSet):
     """
 
     serializer_class = DatasetSyncSerializer
+    permission_classes = [IsAdminUser]  # Only allow access to admin users
 
     def create(self, request):
-        if request.user.is_superuser:
-            serializer = DatasetSyncSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            authorities = serializer.validated_data["authorities"]
-            authorities_ids = [authority.id for authority in authorities]
-            authorities_without_pid = Authorities.objects.filter(
-                id__in=authorities_ids, pid=0
-            )
-            authorities_without_pid.update(status="GETTING_DATA")
+        serializer = DatasetSyncSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        authorities = serializer.validated_data["authorities"]
+        authorities_ids = [authority.id for authority in authorities]
+        authorities_without_pid = Authorities.objects.filter(
+            id__in=authorities_ids, pid=0
+        )
+        authorities_without_pid.update(status="GETTING_DATA")
 
-            authorities_ids_str = " ".join(str(id) for id in authorities_ids)
-            subprocess.Popen(
-                [
-                    "python",
-                    "./manage.py",
-                    "datasets_sync",
-                    "--authorities",
-                    authorities_ids_str,
-                ]
-            )
-            return Response(
-                {
-                    "message": RESPONSE_MESSAGES["ACTION_INITIATED_SUCCESSFULLY"][
-                        "message"
-                    ]
-                },
-                status=RESPONSE_MESSAGES["ACTION_INITIATED_SUCCESSFULLY"]["code"],
-            )
-        else:
-            return Response(
-                {"message": RESPONSE_MESSAGES["FORBIDDEN_ACTION"]["message"]},
-                status=RESPONSE_MESSAGES["FORBIDDEN_ACTION"]["code"],
-            )
+        authorities_ids_str = " ".join(str(id) for id in authorities_ids)
+        subprocess.Popen(
+            [
+                "python",
+                "./manage.py",
+                "datasets_sync",
+                "--authorities",
+                authorities_ids_str,
+            ]
+        )
+        return Response(
+            {"message": RESPONSE_MESSAGES["ACTION_INITIATED_SUCCESSFULLY"]["message"]},
+            status=RESPONSE_MESSAGES["ACTION_INITIATED_SUCCESSFULLY"]["code"],
+        )
