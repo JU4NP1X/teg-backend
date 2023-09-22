@@ -29,10 +29,9 @@ class DocumentsFilter(filters.FilterSet):
         queryset=Authorities.objects.all(),
         distinct=True,
     )
-    categories = filters.ModelChoiceFilter(
+    categories = filters.BaseInFilter(
         field_name="categories",
-        queryset=Categories.objects.all(),
-        distinct=True,
+        label="Comma separated authority",
     )
     deprecated = filters.BooleanFilter(
         field_name="categories__deprecated",
