@@ -34,7 +34,7 @@ class OecdScraper:
 
     def __init__(self):
         self.base_url = "https://bibliotecavirtual.clacso.org.ar/ar/oecd-macroth"
-        self.alphabet = ""
+        self.alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         self.timeout = 15
         self.authority = Authorities.objects.get(name="OECD")
 
@@ -52,7 +52,7 @@ class OecdScraper:
 
         results_2_detail = (
             Categories.objects.filter(authority=self.authority)
-            .filter(deprecated=False)
+            .filter(deprecated=False, parent=None)
             .exclude(link="")
         )
         for result in tqdm(results_2_detail, desc="Getting details"):
@@ -99,7 +99,7 @@ class OecdScraper:
             result (Categories): The result to get the details for.
         """
 
-        for lang in ["en", "es"]:
+        for lang in ["es", "en"]:
             url = f"{self.base_url}/{lang}/{result.link}"
 
             try:
@@ -197,13 +197,13 @@ class OecdScraper:
                         correction = correction.strip()
 
                         if len(correction):
-                            Translations.objects.get_or_create(
+                            Translations.objects.update_or_create(
                                 language="es",
                                 category=result,
                                 defaults={"name": correction},
                             )
                         else:
-                            Translations.objects.get_or_create(
+                            Translations.objects.update_or_create(
                                 language="es",
                                 category=result,
                                 defaults={"name": translation.strip()},

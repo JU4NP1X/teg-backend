@@ -1,12 +1,14 @@
+import os
 from rest_framework import viewsets
-from rest_framework.authtoken.models import Token
-from django.contrib.auth import authenticate
 from rest_framework.permissions import IsAdminUser, IsAuthenticated, BasePermission
 from rest_framework.response import Response
 from google.auth.transport import requests
 from utils.response_messages import RESPONSE_MESSAGES
 from .models import User
 from .serializers import UsersSerializer, UserLoginSerializer, UserGoogleLoginSerializer
+from rest_framework_simplejwt.tokens import RefreshToken, OutstandingToken
+from google.oauth2 import id_token
+from google.auth.transport import requests
 
 
 class IsSelf(BasePermission):
@@ -89,10 +91,10 @@ class LoginViewSet(viewsets.ViewSet):
         try:
             user = User.objects.get(username=username)
             if user.check_password(password):
-                token, _ = Token.objects.get_or_create(user=user)
-                serializer = UsersSerializer(user)  # Serialize the user object
+                refresh = RefreshToken.for_user(user)
+                serializer = UsersSerializer(user)
                 data = serializer.data
-                data["token"] = token.key  # Add the token to the response data
+                data["token"] = str(refresh.access_token)
                 return Response(data)
         except User.DoesNotExist:
             pass
@@ -100,6 +102,21 @@ class LoginViewSet(viewsets.ViewSet):
         return Response(
             {"error": RESPONSE_MESSAGES["INVALID_CREDENTIALS"]["message"]},
             status=RESPONSE_MESSAGES["INVALID_CREDENTIALS"]["code"],
+        )
+
+    def delete(self, request):
+        # Obtén el token de acceso del encabezado de autorización
+        authorization_header = request.headers.get("Authorization")
+        if authorization_header:
+            access_token = authorization_header.split(" ")[1]
+            # Invalida el token de acceso actual
+            OutstandingToken.objects.filter(token=access_token).update(
+                is_blacklisted=True
+            )
+
+        return Response(
+            {"message": RESPONSE_MESSAGES["LOGOUT"]["message"]},
+            status=RESPONSE_MESSAGES["LOGOUT"]["code"],
         )
 
 
@@ -120,30 +137,31 @@ class GoogleLoginViewSet(viewsets.ViewSet):
         Returns:
             Response: The response object containing the authentication token.
         """
-        id_token = request.data.get("id_token")
+        id_token_value = request.data.get("id_token")
         try:
             # Verify the ID token with Google Auth
-            id_info = id_token.verify_oauth2_token(id_token, requests.Request())
-            if id_info["iss"] not in [
-                "accounts.google.com",
-                "https://accounts.google.com",
-            ]:
-                raise ValueError(RESPONSE_MESSAGES["INVALID_TOKEN"]["message"])
+            id_info = id_token.verify_oauth2_token(id_token_value, requests.Request())
+            # Check if the email domain is allowed
+            email = id_info["email"]
+            allowed_domains = os.environ.get("ALLOWED_DOMAINS", "").split(",")
+            if not any(email.endswith(domain.strip()) for domain in allowed_domains):
+                raise ValueError("Invalid email domain")
 
             # Get or create the user based on the email
-            user, created = User.objects.get_or_create(email=id_info["email"])
+            user, created = User.objects.get_or_create(email=email)
 
             if created:
                 # Set additional user information if needed
-                user.username = id_info["email"]
+                user.username = email
                 user.save()
 
             # Generate the authentication token
-            token, _ = Token.objects.get_or_create(user=user)
-            serializer = UserGoogleLoginSerializer(user)  # Serialize the user object
+            refresh = RefreshToken.for_user(user)
+            serializer = UsersSerializer(user)
             data = serializer.data
-            data["token"] = token.key  # Add the token to the response data
+            data["token"] = str(refresh.access_token)
             return Response(data)
+
         except ValueError:
             return Response(
                 {"error": RESPONSE_MESSAGES["INVALID_TOKEN"]["message"]},

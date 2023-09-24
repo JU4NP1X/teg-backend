@@ -47,6 +47,10 @@ class DocumentsFilter(filters.FilterSet):
         )  # Dividir la cadena en una lista de IDs de categorías
         return queryset.filter(categories__id__in=category_ids).distinct()
 
+    def filter_queryset(self, queryset):
+        queryset = super().filter_queryset(queryset)
+        return queryset.distinct()
+
     class Meta:
         model = Documents
         fields = ["title", "summary", "categories", "authorities"]

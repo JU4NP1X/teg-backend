@@ -88,7 +88,7 @@ class AuthoritySerializer(serializers.ModelSerializer):
                             "categories",
                             filter=Q(
                                 categories__label_index__isnull=True,
-                                categories__parent__isnull=True,
+                                categories__parent=None,
                                 categories__deprecated=False,
                             ),
                         ),

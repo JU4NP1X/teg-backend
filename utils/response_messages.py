@@ -67,6 +67,10 @@ RESPONSE_MESSAGES = {
         "code": status.HTTP_200_OK,
         "message": "Text extraction successful.",
     },
+    "LOGOUT": {
+        "code": status.HTTP_200_OK,
+        "message": "Cierre de sesión exitoso.",
+    },
     "INVALID_CREDENTIALS": {
         "code": status.HTTP_400_BAD_REQUEST,
         "message": "Invalid credentials.",

@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 from pathlib import Path
+from datetime import timedelta
 
 load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -37,7 +38,7 @@ INSTALLED_APPS = [
     "django_crontab",
     "requests",
     "django_filters",
-    "rest_framework.authtoken",
+    "rest_framework_simplejwt",
     "db_mutex",
     # Services
     "utils",
@@ -67,7 +68,7 @@ REST_FRAMEWORK = {
     "DEFAULT_API_DESCRIPTION": "API of the standarized text classification of the Carabobo University",
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.TokenAuthentication",
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
@@ -130,8 +131,8 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 GOOGLE_AUTH = {
-    "CLIENT_ID": os.environ.get("GOOGLE_CLIENT_ID"),
-    "CLIENT_SECRET": os.environ.get("GOOGLE_CLIENT_SECRET"),
+    "CLIENT_ID": os.getenv("GOOGLE_CLIENT_ID"),
+    "CLIENT_SECRET": os.getenv("GOOGLE_CLIENT_SECRET"),
 }
 
 
@@ -168,5 +169,10 @@ CRONJOBS = [
     ),
 ]
 
-
+# YOU MUST NOT ERASE IT, THIS LIST CONTAINS THE PREDICTORS THAT ARE ACTIVE
 TEXT_CLASSIFIERS = {}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=2),
+    "REFRESH_TOKEN_LIFETIME": timedelta(weeks=1),
+}

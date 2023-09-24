@@ -131,6 +131,16 @@ class EricScraper:
                 result.related_categories.add(related)
                 result.save()
 
+        try:
+            translation = translator.translate(result.name, dest="es").text
+            Translations.objects.update_or_create(
+                language="es",
+                category=result,
+                defaults={"name": translation},
+            )
+        except Exception as exept:
+            print(exept)
+
         # Find the parent categories
         broader_concept = soup.find("div", text="Broader Terms")
         if broader_concept:
@@ -142,11 +152,5 @@ class EricScraper:
                     name__icontains=name,
                     authority=self.authority,
                 ).first()
-                update_categories_tree(result, parent)
 
-        translation = translator.translate(result.name, dest="es").text
-        Translations.objects.get_or_create(
-            language="es",
-            category=result,
-            defaults={"name": translation},
-        )
+                update_categories_tree(result, parent)

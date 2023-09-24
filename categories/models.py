@@ -1,4 +1,5 @@
 import gc
+import time
 from django.db import models
 from django.conf import settings
 from mptt.models import MPTTModel, TreeForeignKey
@@ -131,7 +132,7 @@ def update_categories_tree(category, parent=None):
                     if parent.name == children.name:
                         return
 
-                if children.parent and parent and children.parent.id != parent.id:
+                if parent and (not children.parent or children.parent.id != parent.id):
                     children.tree_id = free_tree_id
                     children.lft = 0
                     children.rght = 0
@@ -143,10 +144,11 @@ def update_categories_tree(category, parent=None):
                     children.rght = 0
                     children.move_to(None, "last-child")
                     children.save()
+                category = children
 
                 categories_tree_adjust()
-        except DBMutexError as e:
-            print(e)
+        except DBMutexError:
+            time.sleep(0.2)
             try_again = True
 
 
