@@ -1,71 +1,70 @@
 from rest_framework.response import Response
 from rest_framework import status
 
-
 RESPONSE_MESSAGES = {
     "CIRCULAR_RELATIONSHIP": {
         "code": status.HTTP_400_BAD_REQUEST,
-        "message": "Circular relationship detected in the CSV data.",
+        "message": "Se detectó una relación circular en los datos del CSV",
     },
     "DUPLICATE_NAME": {
         "code": status.HTTP_400_BAD_REQUEST,
-        "message": "Duplicate name found in the CSV data.",
+        "message": "Se encontró un nombre duplicado en los datos del CSV.",
     },
     "INVALID_RELATIONSHIP": {
         "code": status.HTTP_400_BAD_REQUEST,
-        "message": "Invalid relationship found in the CSV data.",
+        "message": "Se encontró una relación inválida en los datos del CSV.",
     },
     "ELEMENT_NOT_FOUND": {
         "code": status.HTTP_400_BAD_REQUEST,
-        "message": "Element not found in the CSV data.",
+        "message": "Elemento no encontrado en los datos del CSV.",
     },
     "CSV_CREATION_FAILED": {
         "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-        "message": "Failed to create the CSV with categories.",
+        "message": "Error al crear el CSV con las categorías.",
     },
     "ERROR_TRAINING": {
         "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-        "message": "Failed training the authority.",
+        "message": "Error al entrenar la autoridad.",
     },
     "TEXT_CLASSIFICATION_FAILED": {
         "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-        "message": "Failed to classify the text.",
+        "message": "Error al clasificar el texto.",
     },
     "TRAINING_MODEL_NOT_EXIST": {
         "code": status.HTTP_400_BAD_REQUEST,
-        "message": "The trained model doesn't exist.",
+        "message": "El modelo entrenado no existe.",
     },
     "CANNOT_DELETE_NATIVE_AUTHORITY": {
         "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-        "message": "Cannot delete a native authority.",
+        "message": "No se puede eliminar una autoridad nativa.",
     },
     "CANNOT_MODIFY_NATIVE_AUTHORITY_NAME": {
         "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-        "message": "Cannot modify the name of a native authority.",
+        "message": "No se puede modificar el nombre de una autoridad nativa.",
     },
     "INVALID_CSV_FORMAT": {
         "code": status.HTTP_400_BAD_REQUEST,
-        "message": "Invalid CSV format. Unable to decode base64 or parse CSV.",
+        "message": "Formato CSV inválido. No se puede decodificar base64 o analizar el CSV.",
     },
     "AUTHORITY_ALREADY_EXISTS": {
         "code": status.HTTP_400_BAD_REQUEST,
-        "message": "The authority already exists.",
+        "message": "La autoridad ya existe.",
     },
     "FORBIDDEN_ACTION": {
         "code": status.HTTP_403_FORBIDDEN,
-        "message": "Only administrators can execute this action.",
+        "message": "Solo los administradores pueden ejecutar esta acción.",
     },
     "ACTION_INITIATED_SUCCESSFULLY": {
         "code": status.HTTP_200_OK,
-        "message": "Action initiated successfully.",
+        "message": "Acción iniciada exitosamente.",
     },
     "INVALID_IMAGE_FORMAT": {
         "code": status.HTTP_400_BAD_REQUEST,
-        "message": "Invalid image format. Unable to decode base64 or open image.",
+        "message": "Formato de imagen inválido. No se puede decodificar base64 o abrir la imagen.",
     },
     "TEXT_EXTRACTION_SUCCESS": {
         "code": status.HTTP_200_OK,
-        "message": "Text extraction successful.",
+        "message": "Extracción de texto exitosa.",
     },
     "LOGOUT": {
         "code": status.HTTP_200_OK,
@@ -73,14 +72,14 @@ RESPONSE_MESSAGES = {
     },
     "INVALID_CREDENTIALS": {
         "code": status.HTTP_400_BAD_REQUEST,
-        "message": "Invalid credentials.",
+        "message": "Credenciales inválidas.",
     },
     "INVALID_TOKEN": {
         "code": status.HTTP_400_BAD_REQUEST,
-        "message": "Invalid token.",
+        "message": "Token inválido.",
     },
     "OK": {
         "code": status.HTTP_200_OK,
-        "message": "Success.",
+        "message": "Éxito.",
     },
 }

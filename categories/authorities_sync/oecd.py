@@ -52,7 +52,7 @@ class OecdScraper:
 
         results_2_detail = (
             Categories.objects.filter(authority=self.authority)
-            .filter(deprecated=False, parent=None)
+            .filter(deprecated=False)
             .exclude(link="")
         )
         for result in tqdm(results_2_detail, desc="Getting details"):
@@ -136,7 +136,7 @@ class OecdScraper:
                     name = a.text.strip().capitalize()
                     link = a["href"]
                     parent = Categories.objects.filter(
-                        name__icontains=name,
+                        name=name,
                         authority=self.authority,
                     ).first()
                     if parent and parent.deprecated:

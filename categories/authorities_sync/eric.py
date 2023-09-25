@@ -44,7 +44,7 @@ class EricScraper:
 
         results_2_detail = (
             Categories.objects.filter(authority=self.authority)
-            .filter(parent=None, deprecated=False)
+            .filter(parent=None)
             .exclude(link="")
         )
         for result in tqdm(results_2_detail, desc="Getting details"):
@@ -149,7 +149,7 @@ class EricScraper:
                 name = a.text.strip()
                 link = a["href"]
                 parent = Categories.objects.filter(
-                    name__icontains=name,
+                    name=name,
                     authority=self.authority,
                 ).first()
 
