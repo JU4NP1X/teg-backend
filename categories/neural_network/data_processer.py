@@ -15,6 +15,10 @@ class GroupConcat(Func):
     template = "%(function)s(CAST(%(expressions)s AS text), ', ')"
 
 
+class ArrayFilter(Func):
+    function = "ARRAY_REMOVE"
+
+
 class DataProcesser:
     def __init__(self, authority_id):
         self.authority_id = authority_id
@@ -26,15 +30,18 @@ class DataProcesser:
                 CONTEXT=Concat(
                     "paper_name", Value(": "), "summary", output_field=CharField()
                 ),
-                CATEGORIES=ArrayAgg(
-                    Subquery(
-                        Categories.objects.filter(
-                            deprecated=False,
-                            level=0,
-                            tree_id=OuterRef("dataset__categories__tree_id"),
-                            authority__id=self.authority_id,
-                        ).values("id")
+                CATEGORIES=ArrayFilter(
+                    ArrayAgg(
+                        Subquery(
+                            Categories.objects.filter(
+                                deprecated=False,
+                                level=0,
+                                tree_id=OuterRef("dataset__categories__tree_id"),
+                                authority__id=self.authority_id,
+                            ).values("id")
+                        ),
                     ),
+                    Value(None),
                 ),
             )
             .values("CONTEXT", "CATEGORIES")
@@ -158,7 +165,6 @@ class DataProcesser:
 def fitness_function(individual, df, categories_ids):
     # Calculate the total sum of each category in the individual
     category_sums = [0] * len(categories_ids)
-
     for dataset_id in individual:
         dataset_categories_ids = df.loc[dataset_id, "CATEGORIES"]
         for category_id in dataset_categories_ids:

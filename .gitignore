@@ -22,6 +22,8 @@ trained_tokenizer/*
 trained_model/*
 distilroberta-base/*
 roberta-base/*
+roberta-large/*
+roberta-large-mnli/*
 *.log
 category_counts.png
 

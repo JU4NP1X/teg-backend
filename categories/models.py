@@ -53,7 +53,6 @@ def has_invalid_relation(data):
 
         # Verificar si el elemento ya tiene un padre asignado
         if element_id in parents:
-            print("ENTRA 1")
             return RESPONSE_MESSAGES["CIRCULAR_RELATIONSHIP"]
         # Verificar si el nombre del elemento ya ha sido utilizado
         if name in names:
@@ -65,7 +64,6 @@ def has_invalid_relation(data):
 
         # Verificar si el padre del elemento es el propio elemento (relación circular)
         if parent_id == element_id:
-            print("ENTRA 2")
             return RESPONSE_MESSAGES["CIRCULAR_RELATIONSHIP"]
 
         # Verificar si el padre del elemento existe en los datos
