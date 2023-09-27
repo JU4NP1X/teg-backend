@@ -299,22 +299,22 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
                 name = request.data.get("name", instance.name)
                 csv_data_list = self.process_csv_data(csv_base64)
 
-                response = has_invalid_relation(csv_data_list)
-
-                if response["code"] != 200:
-                    return Response(
-                        {"message": response["message"]},
-                        status=response["code"],
-                    )
                 if instance.native:
                     for element in csv_data_list:
                         Translations.objects.filter(
                             category_id=element["id"],
-                            lang="es",
+                            language="es",
                             name=element["translation"],
                         )
 
                 else:
+                    response = has_invalid_relation(csv_data_list)
+
+                    if response["code"] != 200:
+                        return Response(
+                            {"message": response["message"]},
+                            status=response["code"],
+                        )
                     create_categories(name, csv_data_list)
 
             except (TypeError, ValueError, UnicodeDecodeError) as e:
@@ -340,17 +340,27 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
 
         if csv_base64:
             try:
+                name = request.data.get("name", instance.name)
                 csv_data_list = self.process_csv_data(csv_base64)
 
-                response = has_invalid_relation(csv_data_list)
+                if instance.native:
+                    for element in csv_data_list:
+                        Translations.objects.filter(
+                            category_id=element["id"],
+                            language="es",
+                            name=element["translation"],
+                        )
 
-                if response["code"] != 200:
-                    return Response(
-                        {"message": response["message"]},
-                        status=response["code"],
-                    )
+                else:
+                    response = has_invalid_relation(csv_data_list)
 
-                create_categories(request.data["name"], csv_data_list)
+                    if response["code"] != 200:
+                        return Response(
+                            {"message": response["message"]},
+                            status=response["code"],
+                        )
+                    create_categories(name, csv_data_list)
+
             except Exception as e:
                 print(e)
                 return Response(
