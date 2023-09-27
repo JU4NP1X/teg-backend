@@ -1,4 +1,5 @@
 import os
+import torch
 import pytorch_lightning as pl
 from transformers import AutoTokenizer
 from torch.utils.data import DataLoader
@@ -30,6 +31,7 @@ class DataModule(pl.LightningDataModule):
         self.attributes = attributes
         self.batch_size = batch_size
         self.max_length = max_length
+        self.dtype = torch.float16
         self.train_dataset = None
         self.val_dataset = None
 

@@ -49,6 +49,7 @@ def has_invalid_relation(data):
         element_id = row["id"]
         name = row["name"]
         parent_id = row["parent_id"]
+        relation_list = []
 
         # Verificar si el elemento ya tiene un padre asignado
         if element_id in parents:
@@ -71,9 +72,18 @@ def has_invalid_relation(data):
 
         # Verificar si hay una cadena de padres que forma una relación circular
         current_parent = parent_id
+        relation_list.append(str(element_id))
         while current_parent != "":
+            relation_list.append(str(current_parent))
             if current_parent == element_id:
-                return RESPONSE_MESSAGES["CIRCULAR_RELATIONSHIP"]
+                error = {}
+                error["code"] = RESPONSE_MESSAGES["CIRCULAR_RELATIONSHIP"]["code"]
+                error["message"] = (
+                    RESPONSE_MESSAGES["CIRCULAR_RELATIONSHIP"]["message"]
+                    + ": "
+                    + ",".join(relation_list)
+                )
+                return error
             current_parent = parents.get(current_parent, "")
 
     return {"code": 200}

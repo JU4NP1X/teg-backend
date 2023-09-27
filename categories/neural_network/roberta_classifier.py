@@ -147,9 +147,10 @@ class Classifier:
                 checkpoint_callback,
                 TrainingProgressCallback(self.authority_id),
             ],
+            precision="bf16-mixed",
         )
 
-        # trainer.fit(self.model, datamodule=data_module, ckpt_path=checkpoint_path)
+        trainer.fit(self.model, datamodule=data_module, ckpt_path=checkpoint_path)
         if not trainer.interrupted:
             state_dict = self.model.state_dict()
             torch.save(state_dict, f"{self.best_model_path}/model_weights.pt")

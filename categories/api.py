@@ -284,6 +284,7 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
+
         csv_base64 = request.data.get("csv_base64")
         if instance.native and request.data.get("name") != instance.name:
             return Response(
@@ -301,7 +302,7 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
 
                 if instance.native:
                     for element in csv_data_list:
-                        Translations.objects.filter(
+                        Translations.objects.update_or_create(
                             category_id=element["id"],
                             language="es",
                             name=element["translation"],
@@ -309,7 +310,6 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
 
                 else:
                     response = has_invalid_relation(csv_data_list)
-
                     if response["code"] != 200:
                         return Response(
                             {"message": response["message"]},
@@ -345,7 +345,7 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
 
                 if instance.native:
                     for element in csv_data_list:
-                        Translations.objects.filter(
+                        Translations.objects.update_or_create(
                             category_id=element["id"],
                             language="es",
                             name=element["translation"],
@@ -353,14 +353,12 @@ class AuthoritiesViewSet(viewsets.ModelViewSet):
 
                 else:
                     response = has_invalid_relation(csv_data_list)
-
                     if response["code"] != 200:
                         return Response(
                             {"message": response["message"]},
                             status=response["code"],
                         )
                     create_categories(name, csv_data_list)
-
             except Exception as e:
                 print(e)
                 return Response(
