@@ -1,8 +1,15 @@
+"""
+This is the tensor constructor of the dataset
+"""
 from torch.utils.data import Dataset
 import torch
 
 
 class DatasetTensor(Dataset):
+    """
+    This is the class tensor constructor of the dataset
+    """
+
     def __init__(self, df, outputs, max_len, tokenizer):
         self.tokenizer = tokenizer
         self.df = df
