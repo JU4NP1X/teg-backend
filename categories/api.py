@@ -491,24 +491,24 @@ class TrainAuthorityViewSet(viewsets.ViewSet):
     def create(self, request):
         serializer = TrainAuthoritySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        authorities = serializer.validated_data["authorities"]
-        authorities_ids = [authority.id for authority in authorities]
-        authorities_without_pid = Authorities.objects.filter(
-            id__in=authorities_ids, pid=0
-        )
-        authorities_without_pid.update(status="TRAINING")
+        authority = serializer.validated_data["authority_id"]
+        if not authority.pid:
+            authority.status = "TRAINING"
+            authority.save()
 
-        authorities_ids_str = " ".join(str(id) for id in authorities_ids)
-
-        subprocess.Popen(
-            [
-                "python",
-                "./manage.py",
-                "categories_model_train",
-                "--authorities",
-                authorities_ids_str,
-            ]
-        )
+            subprocess.Popen(
+                [
+                    "python",
+                    "./manage.py",
+                    "categories_model_train",
+                    "--authorities",
+                    str(authority.id),
+                ]
+            )
+            return Response(
+                {"message": RESPONSE_MESSAGES["OK"]["message"]},
+                status=RESPONSE_MESSAGES["OK"]["code"],
+            )
         return Response(
             {"message": RESPONSE_MESSAGES["ERROR_TRAINING"]["message"]},
             status=RESPONSE_MESSAGES["ERROR_TRAINING"]["code"],

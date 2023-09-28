@@ -186,3 +186,7 @@ class TrainAuthoritySerializer(serializers.Serializer):
     """
     Serializer of training authority
     """
+
+    authority_id = serializers.PrimaryKeyRelatedField(
+        queryset=Authorities.objects.all(), many=False
+    )

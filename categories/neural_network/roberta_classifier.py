@@ -147,7 +147,6 @@ class Classifier:
                 checkpoint_callback,
                 TrainingProgressCallback(self.authority_id),
             ],
-            precision="bf16-mixed",
         )
 
         trainer.fit(self.model, datamodule=data_module, ckpt_path=checkpoint_path)
@@ -165,9 +164,12 @@ class Classifier:
             # os.makedirs(logs_dir, exist_ok=True)
 
         # Cuando el entrenamiento haya terminado, establece el porcentaje en 0 y cambia el estado a "COMPLETE"
+        authority = Authorities.objects.get(pk=authority.id)
         authority.status = "COMPLETE"
         authority.percentage = 0
         authority.pid = 0
+        authority.practical_precision = 0
+        authority.num_documents_classified = 0
         authority.last_training_date = timezone.now()
         authority.save()
 
