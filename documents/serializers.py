@@ -23,10 +23,13 @@ class CategoriesSerializer(serializers.ModelSerializer):
 
 class DocumentsSerializer(serializers.ModelSerializer):
     pdf = serializers.CharField(
-        max_length=None, style={"placeholder": "Enter the base64 of the pdf"}
+        max_length=None,
+        style={"placeholder": "Enter the base64 of the pdf"},
     )
     img = serializers.CharField(
-        max_length=None, style={"placeholder": "Enter the base64 of the img"}
+        max_length=None,
+        style={"placeholder": "Enter the base64 of the img"},
+        write_only=True,
     )
 
     category = serializers.SerializerMethodField()
@@ -69,9 +72,6 @@ class DocumentsSerializer(serializers.ModelSerializer):
                 pdf_base64 = base64.b64encode(instance.pdf).decode("utf-8")
                 representation["pdf"] = pdf_base64
 
-        if instance.img:
-            img_base64 = base64.b64encode(instance.img).decode("utf-8")
-            representation["img"] = img_base64
         return representation
 
     def create(self, validated_data):

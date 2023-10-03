@@ -5,13 +5,15 @@ import pytesseract
 from rest_framework import viewsets, permissions
 from rest_framework.response import Response
 from PIL import Image
-from .models import Documents
-from .serializers import DocumentsSerializer, DocumentsTextExtractorSerializer
+from django.http import FileResponse
+from django.shortcuts import get_object_or_404
 from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from utils.response_messages import RESPONSE_MESSAGES
 from categories.models import Categories, Authorities
+from .models import Documents
+from .serializers import DocumentsSerializer, DocumentsTextExtractorSerializer
 
 # Language config
 custom_config = f"--oem 3 --psm 6 -l {os.getenv('TESSERACT_ALPHA3', 'eng')}"
@@ -203,3 +205,20 @@ class DocumentsTextExtractorViewSet(viewsets.ViewSet):
                 {"message": RESPONSE_MESSAGES["INVALID_IMAGE_FORMAT"]["message"]},
                 status=RESPONSE_MESSAGES["INVALID_IMAGE_FORMAT"]["code"],
             )
+
+
+class DocumentImageViewSet(viewsets.ViewSet):
+    def retrieve(self, request, pk=None):
+        document = Documents.objects.get(pk=pk)
+        response = FileResponse(document.img, content_type="image/png")
+        response["Cache-Control"] = "public, max-age=86400"
+        return response
+
+
+class DocumentPdfViewSet(viewsets.ViewSet):
+    def retrieve(self, request, pk=None):
+        document = Documents.objects.get(pk=pk)
+        response = FileResponse(document.pdf, content_type="application/pdf")
+        response["Cache-Control"] = "public, max-age=86400"
+        response["X-Frame-Options"] = "ALLOWALL"
+        return response
