@@ -523,23 +523,14 @@ class GetAuthorityCategoriesViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Categories.objects.filter(deprecated=False)
 
     permission_classes = [IsAdminUser]
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_class = GetAuthorityCategoriesFilter
     serializer_class = TrainAuthoritySerializer
 
-    http_method_names = ["get"]
+    http_method_names = ["post"]
 
-    def list(self, request):
+    def create(self, request):
         try:
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-
-            # Check if the filter is provided in the request
-            if "authorities" not in request.query_params:
-                return Response(
-                    {"message": "The 'authorities' parameter is required"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
 
             # Apply the filter
             queryset = self.filter_queryset(self.get_queryset())

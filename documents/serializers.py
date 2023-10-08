@@ -2,7 +2,14 @@ import base64
 from rest_framework import serializers
 from categories.models import Categories, Translations, Authorities
 from categories.serializers import TranslationsSerializer
+from users.models import User
 from .models import Documents
+
+
+class UsersSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["username"]
 
 
 class CategoriesSerializer(serializers.ModelSerializer):
@@ -33,6 +40,8 @@ class DocumentsSerializer(serializers.ModelSerializer):
     )
 
     category = serializers.SerializerMethodField()
+    created_by = serializers.SerializerMethodField()
+    updated_by = serializers.SerializerMethodField()
 
     predicted_trees = serializers.MultipleChoiceField(
         choices=Categories.objects.filter(
@@ -58,6 +67,14 @@ class DocumentsSerializer(serializers.ModelSerializer):
             serializer = CategoriesSerializer(categories, many=True)
             return serializer.data
         return None
+
+    def get_created_by(self, obj):
+        serializer = UsersSerializer(obj.created_by, many=False)
+        return serializer.data
+
+    def get_updated_by(self, obj):
+        serializer = UsersSerializer(obj.updated_by, many=False)
+        return serializer.data
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)

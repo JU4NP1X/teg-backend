@@ -180,10 +180,12 @@ class Classifier:
         Returns:
             None
         """
-        Categories.objects.all().update(label_index=None)
+        Categories.objects.filter(authority_id=self.authority_id).update(
+            label_index=None
+        )
         index = 0
-        for label_id, _ in self.categories:
-            category = Categories.objects.get(id=label_id)
+        for id, _ in self.categories:
+            category = Categories.objects.get(id=id)
             category.label_index = index
             category.save()
             index += 1

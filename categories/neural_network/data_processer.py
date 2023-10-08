@@ -44,6 +44,7 @@ class DataProcesser:
                     Value(None),
                 ),
             )
+            .exclude(CATEGORIES=[])
             .values("CONTEXT", "CATEGORIES")
         )
         self.mlb = MultiLabelBinarizer()
@@ -108,7 +109,7 @@ class DataProcesser:
 
     # Really better solution, but slower
     def balance_data(self, df):
-        print(df.head())
+        print(df.head(20))
         # First, flatten the list of categories and count the frequency of each one
         categories = [
             label for sublist in df["CATEGORIES"].tolist() for label in sublist

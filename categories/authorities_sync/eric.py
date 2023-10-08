@@ -26,7 +26,7 @@ class EricScraper:
 
     def __init__(self):
         self.base_url = "https://eric.ed.gov"
-        self.alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        self.alphabet = ""
         self.timeout = 15
         self.authority = Authorities.objects.get(name="ERIC")
 
@@ -43,8 +43,8 @@ class EricScraper:
             self.get_results(letter)
 
         results_2_detail = (
-            Categories.objects.filter(authority=self.authority)
-            .filter(deprecated=False)
+            Categories.objects.filter(authority=self.authority).filter(parent=None)
+            # .filter(link="")
             .exclude(link="")
         )
         for result in tqdm(results_2_detail, desc="Getting details"):
@@ -102,55 +102,86 @@ class EricScraper:
             result (Categories): The result to get the details for.
         """
         link = result.link
-        if link == "":
-            return
-        if link and link[0] == "/":
-            link = link[1:]
 
-        url = f"{self.base_url}/{link}"
-        try:
-            response = requests.get(url, timeout=self.timeout, verify=False)
-        except Exception as exept:
-            print(exept)
-            return
-
-        if response.status_code != 200:
-            return
-
-        soup = BeautifulSoup(response.content, "html.parser")
-
-        # Find the related concepts
-        related_concepts = soup.find("div", text="Related Terms")
-        if related_concepts:
-            for a in related_concepts.find_next_siblings("a"):
-                name = a.text.strip()
-                link = a["href"]
-                related, _ = Categories.objects.update_or_create(
-                    name=name, authority=self.authority, defaults={"link": link}
+        if not len(Translations.objects.filter(category_id=result.id, language="es")):
+            try:
+                translation = translator.translate(result.name, dest="es").text
+                translation_object = Translations.objects.get_or_create(
+                    language="es",
+                    category=result,
+                    defaults={"name": translation},
                 )
-                result.related_categories.add(related)
-                result.save()
+                print(translation_object)
+            except Exception as exept:
+                print(exept)
 
-        try:
-            translation = translator.translate(result.name, dest="es").text
-            Translations.objects.update_or_create(
-                language="es",
-                category=result,
-                defaults={"name": translation},
+        if link:
+            if link and link[0] == "/":
+                link = link[1:]
+
+            url = f"{self.base_url}/{link}"
+            try:
+                response = requests.get(url, timeout=self.timeout, verify=False)
+            except Exception as exept:
+                print(exept)
+                return
+
+            if response.status_code != 200:
+                return
+
+            soup = BeautifulSoup(response.content, "html.parser")
+
+            # Find the related concepts
+            related_concepts = soup.find("div", text="Related Terms")
+            if related_concepts:
+                for a in related_concepts.find_next_siblings("a"):
+                    name = a.text.strip()
+                    link = a["href"]
+                    related, _ = Categories.objects.update_or_create(
+                        name=name, authority=self.authority, defaults={"link": link}
+                    )
+                    result.related_categories.add(related)
+                    result.save()
+
+            # Find the parent categories
+            broader_concept = soup.find("div", text="Broader Terms")
+            if broader_concept:
+                a = broader_concept.find_next_sibling()
+                if a.name == "a":
+                    name = a.text.strip()
+                    link = a["href"]
+                    parent = Categories.objects.filter(
+                        name=name,
+                        authority=self.authority,
+                    ).first()
+
+                    update_categories_tree(result, parent)
+                    return
+
+            div_tags = soup.find("h2").parent.find_all("div")
+
+            for div_tag in div_tags:
+                if "Category:" in div_tag.text:
+                    category_div = div_tag
+                    break
+            parent_name = category_div.find("a").text.strip()
+
+            parent, created = Categories.objects.update_or_create(
+                name=parent_name,
+                authority=self.authority,
+                defaults={"link": "", "deprecated": False},
             )
-        except Exception as exept:
-            print(exept)
+            if created:
+                try:
+                    translation = translator.translate(parent.name, dest="es").text
+                    Translations.objects.update_or_create(
+                        language="es",
+                        category=parent,
+                        defaults={"name": translation},
+                    )
+                except Exception as exept:
+                    print(exept)
 
-        # Find the parent categories
-        broader_concept = soup.find("div", text="Broader Terms")
-        if broader_concept:
-            a = broader_concept.find_next_sibling()
-            if a.name == "a":
-                name = a.text.strip()
-                link = a["href"]
-                parent = Categories.objects.filter(
-                    name=name,
-                    authority=self.authority,
-                ).first()
-
-                update_categories_tree(result, parent)
+            update_categories_tree(result, parent)
+        else:
+            update_categories_tree(result, None)

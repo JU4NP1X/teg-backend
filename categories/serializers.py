@@ -1,8 +1,18 @@
-from django.db.models import Count, Q, Subquery, OuterRef, IntegerField
+from django.db.models import Count, Q, Subquery, OuterRef, IntegerField, Value, Func
 from django.db.models.functions import Coalesce
 from rest_framework import serializers
+from django.contrib.postgres.aggregates import ArrayAgg
 from .models import Categories, Translations, Authorities
 from datasets.models import Datasets
+
+
+class GroupConcat(Func):
+    function = "STRING_AGG"
+    template = "%(function)s(CAST(%(expressions)s AS text), ', ')"
+
+
+class ArrayFilter(Func):
+    function = "ARRAY_REMOVE"
 
 
 class CategoriesSerializer(serializers.ModelSerializer):
@@ -88,7 +98,25 @@ class AuthoritySerializer(serializers.ModelSerializer):
                             "categories",
                             filter=Q(
                                 categories__label_index__isnull=True,
-                                categories__parent=None,
+                                categories__parent__isnull=True,
+                                categories__deprecated=False,
+                            ),
+                        ),
+                        0,
+                    ),
+                    subcategory_not_trained_count=Coalesce(
+                        Count(
+                            "categories",
+                            filter=Q(
+                                categories__tree_id__in=Subquery(
+                                    Categories.objects.filter(
+                                        deprecated=False,
+                                        label_index__isnull=True,
+                                        level=0,
+                                        authority__id=obj.id,
+                                    ).values("tree_id")
+                                ),
+                                categories__parent__isnull=False,
                                 categories__deprecated=False,
                             ),
                         ),
@@ -105,6 +133,24 @@ class AuthoritySerializer(serializers.ModelSerializer):
                         ),
                         0,
                     ),
+                    subcategory_trained_count=Coalesce(
+                        Count(
+                            "categories",
+                            filter=Q(
+                                categories__tree_id__in=Subquery(
+                                    Categories.objects.filter(
+                                        deprecated=False,
+                                        label_index__isnull=False,
+                                        level=0,
+                                        authority__id=obj.id,
+                                    ).values("tree_id")
+                                ),
+                                categories__parent__isnull=False,
+                                categories__deprecated=False,
+                            ),
+                        ),
+                        0,
+                    ),
                     deprecated_category_trained_count=Coalesce(
                         Count(
                             "categories",
@@ -116,13 +162,37 @@ class AuthoritySerializer(serializers.ModelSerializer):
                         ),
                         0,
                     ),
+                    deprecated_subcategory_trained_count=Coalesce(
+                        Count(
+                            "categories",
+                            filter=Q(
+                                categories__tree_id__in=Subquery(
+                                    Categories.objects.filter(
+                                        deprecated=False,
+                                        label_index__isnull=False,
+                                        level=0,
+                                        authority__id=obj.id,
+                                    ).values("tree_id")
+                                ),
+                                categories__parent__isnull=False,
+                                categories__deprecated=True,
+                            ),
+                        ),
+                        0,
+                    ),
                     representated_category_count=Coalesce(
                         Categories.objects.filter(
                             deprecated=False,
                             parent=None,
                             authority__id=obj.id,
                         )
-                        .exclude(datasets=None)
+                        .filter(
+                            tree_id__in=Categories.objects.filter(
+                                deprecated=False,
+                                datasets__isnull=False,
+                                authority__id=obj.id,
+                            ).values("tree_id")
+                        )
                         .count(),
                         0,
                         output_field=IntegerField(),
@@ -134,6 +204,9 @@ class AuthoritySerializer(serializers.ModelSerializer):
                     "category_not_trained_count",
                     "deprecated_category_trained_count",
                     "representated_category_count",
+                    "subcategory_not_trained_count",
+                    "subcategory_trained_count",
+                    "deprecated_subcategory_trained_count",
                 )
                 .first()
             )
