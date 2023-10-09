@@ -28,6 +28,12 @@ class CategoriesSerializer(serializers.ModelSerializer):
         return None
 
 
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["username"]
+
+
 class DocumentsSerializer(serializers.ModelSerializer):
     pdf = serializers.CharField(
         max_length=None,
@@ -69,11 +75,11 @@ class DocumentsSerializer(serializers.ModelSerializer):
         return None
 
     def get_created_by(self, obj):
-        serializer = UsersSerializer(obj.created_by, many=False)
+        serializer = UserSerializer(obj.created_by)
         return serializer.data
 
     def get_updated_by(self, obj):
-        serializer = UsersSerializer(obj.updated_by, many=False)
+        serializer = UserSerializer(obj.updated_by)
         return serializer.data
 
     def to_representation(self, instance):
