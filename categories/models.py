@@ -20,6 +20,15 @@ def execute_query(query):
 def categories_tree_adjust():
     query = """
         UPDATE categories AS ca
+        SET "level" = 0
+        WHERE ca.parent_id is null
+    """
+
+    # Tree correction (there is a bug, that the move_to not update the tree of it chindrens)
+    execute_query(query)
+
+    query = """
+        UPDATE categories AS ca
         SET tree_id = ca2.tree_id, "level" = ca2.level + 1
         FROM categories AS ca2
         WHERE ca2.tree_id <> ca.tree_id AND ca2.id = ca.parent_id
@@ -148,12 +157,14 @@ def update_categories_tree(category, parent=None):
                     children.rght = 0
                     children.move_to(parent, "last-child")
                     children.save()
-                elif not parent and children.level != 0:
+                elif not parent:
                     children.tree_id = free_tree_id
+                    children.level = 0
                     children.lft = 0
                     children.rght = 0
                     children.move_to(None, "last-child")
                     children.save()
+                    print("hola", children)
                 category = children
 
                 categories_tree_adjust()

@@ -26,7 +26,7 @@ class EricScraper:
 
     def __init__(self):
         self.base_url = "https://eric.ed.gov"
-        self.alphabet = ""
+        self.alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         self.timeout = 15
         self.authority = Authorities.objects.get(name="ERIC")
 
@@ -41,9 +41,10 @@ class EricScraper:
         # Loop through the alphabet and get the results for each letter
         for letter in tqdm(self.alphabet, desc="Processing letters"):
             self.get_results(letter)
-
         results_2_detail = (
-            Categories.objects.filter(authority=self.authority).filter(parent=None)
+            Categories.objects.filter(
+                authority=self.authority, deprecated=False
+            ).filter(parent=None)
             # .filter(link="")
             .exclude(link="")
         )
@@ -88,6 +89,8 @@ class EricScraper:
                         deprecated = False
                         if li.find("em"):
                             deprecated = True
+                        if not deprecated:
+                            print(name)
                         Categories.objects.update_or_create(
                             name=name,
                             authority=self.authority,
@@ -115,7 +118,7 @@ class EricScraper:
             except Exception as exept:
                 print(exept)
 
-        if link:
+        if not link:
             if link and link[0] == "/":
                 link = link[1:]
 
@@ -154,34 +157,6 @@ class EricScraper:
                         name=name,
                         authority=self.authority,
                     ).first()
-
                     update_categories_tree(result, parent)
                     return
-
-            div_tags = soup.find("h2").parent.find_all("div")
-
-            for div_tag in div_tags:
-                if "Category:" in div_tag.text:
-                    category_div = div_tag
-                    break
-            parent_name = category_div.find("a").text.strip()
-
-            parent, created = Categories.objects.update_or_create(
-                name=parent_name,
-                authority=self.authority,
-                defaults={"link": "", "deprecated": False},
-            )
-            if created:
-                try:
-                    translation = translator.translate(parent.name, dest="es").text
-                    Translations.objects.update_or_create(
-                        language="es",
-                        category=parent,
-                        defaults={"name": translation},
-                    )
-                except Exception as exept:
-                    print(exept)
-
-            update_categories_tree(result, parent)
-        else:
-            update_categories_tree(result, None)
+        update_categories_tree(result, None)
