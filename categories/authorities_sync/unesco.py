@@ -187,7 +187,9 @@ class UnescoScraper:
                 language = a["hreflang"]
                 name = a.text.strip()
                 try:
-                    Translations.objects.get(language=language, name=name)
+                    Translations.objects.filter(
+                        language=language, name=name, category=result
+                    ).first()
                 except Translations.DoesNotExist:
                     Translations.objects.create(
                         language=language, name=name, category=result
