@@ -115,7 +115,7 @@ class EricScraper:
             except Exception as exept:
                 print(exept)
 
-        if not link:
+        if link:
             if link and link[0] == "/":
                 link = link[1:]
 
