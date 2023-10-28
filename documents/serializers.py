@@ -63,7 +63,7 @@ class DocumentsSerializer(serializers.ModelSerializer):
     updated_by = serializers.SerializerMethodField()
 
     predicted_trees = serializers.MultipleChoiceField(
-        choices=lambda: get_predicted_trees(),
+        choices=get_predicted_trees(),
         write_only=True,
     )
 
