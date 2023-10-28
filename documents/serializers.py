@@ -67,6 +67,16 @@ class DocumentsSerializer(serializers.ModelSerializer):
             "num_of_access",
         )
 
+    def get_predicted_trees(self, obj):
+        try:
+            # Perform any necessary operations or calculations here
+            # and return the predicted trees data
+            return obj.predicted_trees
+        except Exception as e:
+            # Handle any exceptions that may occur during the process
+            # and return a default value or error message
+            return "Error: Failed to retrieve predicted trees"
+
     def get_category(self, obj):
         categories = obj.categories.filter(authority__disabled=False)
         if categories:

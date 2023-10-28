@@ -136,6 +136,8 @@ class CategoriesClassifier(pl.LightningModule):
         pooled_output = torch.mean(output.last_hidden_state, 1)
         pooled_output = self.dropout(pooled_output)
         pooled_output = self.hidden_1(pooled_output)
+        pooled_output = F.relu(pooled_output)
+        pooled_output = self.dropout(pooled_output)
         pooled_output = self.hidden_2(pooled_output)
 
         pooled_output = F.relu(pooled_output)

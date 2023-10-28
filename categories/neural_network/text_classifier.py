@@ -65,7 +65,7 @@ class TextClassifier:
         self.model.load_state_dict(
             torch.load(self.best_model_weights, map_location=torch.device("cpu"))
         )
-        torch.set_default_dtype(torch.float16)
+        torch.set_default_dtype(torch.float32)
         self.model.eval()
 
     def classify_text(self, text):

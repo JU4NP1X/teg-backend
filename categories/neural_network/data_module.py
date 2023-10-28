@@ -31,7 +31,7 @@ class DataModule(pl.LightningDataModule):
         self.attributes = attributes
         self.batch_size = batch_size
         self.max_length = max_length
-        self.dtype = torch.float16
+        self.dtype = torch.float32
         self.train_dataset = None
         self.val_dataset = None
 
