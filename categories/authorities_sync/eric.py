@@ -89,8 +89,6 @@ class EricScraper:
                         deprecated = False
                         if li.find("em"):
                             deprecated = True
-                        if not deprecated:
-                            print(name)
                         Categories.objects.update_or_create(
                             name=name,
                             authority=self.authority,
@@ -109,12 +107,11 @@ class EricScraper:
         if not len(Translations.objects.filter(category_id=result.id, language="es")):
             try:
                 translation = translator.translate(result.name, dest="es").text
-                translation_object = Translations.objects.get_or_create(
+                Translations.objects.get_or_create(
                     language="es",
                     category=result,
                     defaults={"name": translation},
                 )
-                print(translation_object)
             except Exception as exept:
                 print(exept)
 

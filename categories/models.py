@@ -164,7 +164,6 @@ def update_categories_tree(category, parent=None):
                     children.rght = 0
                     children.move_to(None, "last-child")
                     children.save()
-                    print("hola", children)
                 category = children
 
                 categories_tree_adjust()
