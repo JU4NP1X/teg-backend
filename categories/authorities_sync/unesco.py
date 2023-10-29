@@ -186,7 +186,7 @@ class UnescoScraper:
             for a in other_languages:
                 language = a["hreflang"]
                 name = a.text.strip()
-                Categories.objects.update_or_create(
+                Translations.objects.update_or_create(
                     language=language,
                     category=result,
                     defaults={"name": name},
