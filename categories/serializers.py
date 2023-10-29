@@ -263,3 +263,23 @@ class TrainAuthoritySerializer(serializers.Serializer):
     authority_id = serializers.PrimaryKeyRelatedField(
         queryset=Authorities.objects.all(), many=False
     )
+
+
+class LoadPrecitorSerializer(serializers.Serializer):
+    zip_file = serializers.FileField(
+        allow_empty_file=False, max_length=4294967296, allow_null=False, write_only=True
+    )
+
+    def validate_zip_file(self, value):
+        # Verificar si el archivo es un archivo zip
+        if not value.name.endswith(".zip"):
+            raise serializers.ValidationError("El archivo debe ser un archivo zip.")
+
+        # Verificar el tamaño del archivo
+        max_size = 4 * 1024 * 1024 * 1024  # 4GB
+        if value.size > max_size:
+            raise serializers.ValidationError(
+                "El archivo no puede exceder los 4GB de tamaño."
+            )
+
+        return value

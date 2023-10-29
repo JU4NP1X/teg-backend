@@ -1,3 +1,4 @@
+import os
 import subprocess
 from rest_framework import viewsets
 from rest_framework.permissions import IsAdminUser
@@ -87,7 +88,7 @@ class DatasetSyncViewSet(viewsets.ViewSet):
         authorities_ids_str = " ".join(str(id) for id in authorities_ids)
         subprocess.Popen(
             [
-                "python",
+                os.getenv("PYTHON_PATH"),
                 "./manage.py",
                 "datasets_sync",
                 "--authorities",

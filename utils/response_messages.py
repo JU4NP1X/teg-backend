@@ -82,4 +82,12 @@ RESPONSE_MESSAGES = {
         "code": status.HTTP_200_OK,
         "message": "Éxito.",
     },
+    "PREDICTOR_LOAD_SUCCESS": {
+        "code": status.HTTP_200_OK,
+        "message": "Predictor cargado correctamente",
+    },
+    "UNKNOW_ERROR": {
+        "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
+        "message": "Error desconocido en el sistema",
+    },
 }

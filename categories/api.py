@@ -21,6 +21,10 @@ import os
 import base64
 import csv
 import subprocess
+import zipfile
+import json
+import tempfile
+import shutil
 from datetime import datetime, timezone
 from db_mutex import DBMutexError
 from django.conf import settings
@@ -32,7 +36,8 @@ from googletrans import Translator as GoogleTranslator
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import viewsets, status
+from rest_framework.parsers import MultiPartParser
+from rest_framework import viewsets
 from utils.response_messages import RESPONSE_MESSAGES
 from .neural_network.text_classifier import TextClassifier
 from .models import (
@@ -48,6 +53,7 @@ from .serializers import (
     AuthoritySerializer,
     TextClassificationSerializer,
     TrainAuthoritySerializer,
+    LoadPrecitorSerializer,
 )
 
 
@@ -498,7 +504,7 @@ class TrainAuthorityViewSet(viewsets.ViewSet):
 
             subprocess.Popen(
                 [
-                    "python",
+                    os.getenv("PYTHON_PATH"),
                     "./manage.py",
                     "categories_model_train",
                     "--authorities",
@@ -571,4 +577,65 @@ class GetAuthorityCategoriesViewSet(viewsets.ReadOnlyModelViewSet):
             return Response(
                 {"message": RESPONSE_MESSAGES["CSV_CREATION_FAILED"]["message"]},
                 status=RESPONSE_MESSAGES["CSV_CREATION_FAILED"]["code"],
+            )
+
+
+class LoadPrecitor(viewsets.ViewSet):
+    parser_classes = [MultiPartParser]
+
+    permission_classes = [IsAdminUser]
+    serializer_class = LoadPrecitorSerializer
+
+    def create(self, request):
+        try:
+            # Obtener el archivo zip del request
+            zip_file = request.FILES.get("zip_file")
+
+            # Crear un directorio temporal
+            temp_dir = tempfile.mkdtemp()
+
+            # Extraer el archivo zip en el directorio temporal
+            with zipfile.ZipFile(zip_file, "r") as zip_ref:
+                zip_ref.extractall(temp_dir)
+
+            # Obtener el archivo categories.json
+            categories_file_path = os.path.join(temp_dir, "categories.json")
+            with open(categories_file_path, "r") as categories_file:
+                categories_data = json.loads(categories_file.read())
+
+            # Obtener los datos del archivo categories.json
+            authority_id = categories_data["authority_id"]
+            categories = categories_data["categories"]
+
+            # Guardar el modelo en la ubicación especificada
+            path = os.path.join(
+                BASE_DIR, f"trained_model/{authority_id}/model_weights.pt"
+            )
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            os.rename(os.path.join(temp_dir, "model_weights.pt"), path)
+
+            # Establecer las categorías
+            Categories.objects.filter(authority_id=authority_id).update(
+                label_index=None
+            )
+            index = 0
+            for category_id in categories:
+                category = Categories.objects.get(id=category_id)
+                category.label_index = index
+                category.save()
+                index += 1
+
+            # Eliminar el directorio temporal
+            shutil.rmtree(temp_dir)
+
+            return Response(
+                {"message": RESPONSE_MESSAGES["PREDICTOR_LOAD_SUCCESS"]["message"]},
+                status=RESPONSE_MESSAGES["PREDICTOR_LOAD_SUCCESS"]["code"],
+            )
+
+        except Exception as e:
+            print(e)
+            return Response(
+                {"message": RESPONSE_MESSAGES["UNKNOW_ERROR"]["message"]},
+                status=RESPONSE_MESSAGES["UNKNOW_ERROR"]["code"],
             )

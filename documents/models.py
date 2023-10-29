@@ -1,3 +1,4 @@
+import os
 import base64
 import subprocess
 from django.db import models
@@ -87,7 +88,7 @@ class Documents(models.Model):
 
         subprocess.Popen(
             [
-                "python",
+                os.getenv("PYTHON_PATH"),
                 "./manage.py",
                 "translate_datasets",
             ]

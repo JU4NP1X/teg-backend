@@ -1,6 +1,7 @@
 """
 Class for scraping datasets based on category and universities.
 """
+import os
 import re
 import time
 import requests
@@ -362,7 +363,7 @@ class CreateMissingTranslations:
 def start_scraping():
     subprocess.Popen(
         [
-            "python",
+            os.getenv("PYTHON_PATH"),
             "./manage.py",
             "datasets_sync",
         ]

@@ -6,6 +6,7 @@ from .api import (
     TextClassificationViewSet,
     TrainAuthorityViewSet,
     GetAuthorityCategoriesViewSet,
+    LoadPrecitor,
 )
 
 router = routers.DefaultRouter()
@@ -16,6 +17,7 @@ router.register("authorities", AuthoritiesViewSet)
 router.register("classify", TextClassificationViewSet, basename="classify")
 router.register("train", TrainAuthorityViewSet, basename="train")
 router.register("csv", GetAuthorityCategoriesViewSet, basename="csv")
+router.register("load-predictor", LoadPrecitor, basename="load-predictor")
 
 
 urlpatterns = router.urls
