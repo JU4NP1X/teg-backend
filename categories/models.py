@@ -65,7 +65,12 @@ def has_invalid_relation(data):
             return RESPONSE_MESSAGES["CIRCULAR_RELATIONSHIP"]
         # Verificar si el nombre del elemento ya ha sido utilizado
         if name in names:
-            return RESPONSE_MESSAGES["DUPLICATE_NAME"]
+            error = {}
+            error["code"] = RESPONSE_MESSAGES["DUPLICATE_NAME"]["code"]
+            error["message"] = (
+                RESPONSE_MESSAGES["DUPLICATE_NAME"]["message"] + ": " + name
+            )
+            return error
 
         # Almacenar el padre del elemento
         parents[element_id] = parent_id
