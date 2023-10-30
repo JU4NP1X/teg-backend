@@ -6,6 +6,15 @@ from users.models import User
 from .models import Documents
 
 
+def get_predicted_trees():
+    try:
+        return Categories.objects.filter(
+            deprecated=False, parent=None, level=0
+        ).values_list("tree_id", "name")
+    except Exception as e:
+        return []
+
+
 class UsersSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -49,17 +58,9 @@ class DocumentsSerializer(serializers.ModelSerializer):
     created_by = serializers.SerializerMethodField()
     updated_by = serializers.SerializerMethodField()
     predicted_trees = serializers.MultipleChoiceField(
-        choices=[],
+        choices=get_predicted_trees(),
         write_only=True,
     )
-
-    def get_predicted_trees(self, obj):
-        try:
-            return Categories.objects.filter(
-                deprecated=False, parent=None, level=0
-            ).values_list("tree_id", "name")
-        except Exception as e:
-            return []
 
     class Meta:
         model = Documents
@@ -71,16 +72,6 @@ class DocumentsSerializer(serializers.ModelSerializer):
             "updated_by",
             "num_of_access",
         )
-
-    def get_predicted_trees(self, obj):
-        try:
-            # Perform any necessary operations or calculations here
-            # and return the predicted trees data
-            return obj.predicted_trees
-        except Exception as e:
-            # Handle any exceptions that may occur during the process
-            # and return a default value or error message
-            return "Error: Failed to retrieve predicted trees"
 
     def get_category(self, obj):
         categories = obj.categories.filter(authority__disabled=False)

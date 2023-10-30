@@ -74,6 +74,7 @@ class DocumentsViewSet(viewsets.ModelViewSet):
     def create(self, request):
         serializer = DocumentsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        print("entra")
         predicted_categories = serializer.validated_data["predicted_trees"]
         categories = serializer.validated_data["categories"]
         self.authority_precition_calc(predicted_categories, categories)
