@@ -415,7 +415,7 @@ class TextClassificationViewSet(viewsets.ViewSet):
         authority_id = request.data.get("authority_id")
         model_path = os.path.join(BASE_DIR, "trained_model")
         model_checkpoint = os.path.join(
-            model_path, f"{authority_id}", "model_weights.ckpt"
+            model_path, f"{authority_id}", "model_weights.pt"
         )
 
         if not os.path.exists(model_path) or not os.path.exists(model_checkpoint):
