@@ -61,6 +61,7 @@ class Command(BaseCommand):
             universities = (
                 DatasetsUniversity.objects.filter(active=True)
                 .exclude(name="google_scholar")
+                .exclude(name="uc_university")
                 .values_list("name", flat=True)
             )
 

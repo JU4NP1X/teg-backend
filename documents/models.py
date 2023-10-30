@@ -5,6 +5,7 @@ from django.db import models
 from django.core.files.base import ContentFile
 from users.models import User
 from categories.models import Categories
+from datasets.models import DatasetsUniversity
 
 
 class Documents(models.Model):
@@ -77,11 +78,15 @@ class Documents(models.Model):
         self.convert_img_to_binary()
 
         super().save(*args, **kwargs)
+
+        university, _ = DatasetsUniversity.objects.get_or_create(
+            name="uc_university", url="http://www.uc.edu.ve"
+        )
         dataset, created = Datasets.objects.update_or_create(
-            paper_name=self.title, summary=self.summary
+            paper_name=self.title, university=university
         )
 
-        dataset.categories = self.categories
+        dataset.categories.set(self.categories.all())
         dataset.save()
         if not created:
             DatasetsEnglishTranslations.objects.filter(dataset=dataset).delete()
@@ -103,7 +108,7 @@ class Documents(models.Model):
         """
         try:
             # Check if the pdf field is already binary
-            if not isinstance(self.pdf, bytes):
+            if isinstance(self.pdf, str):
                 # Decode the base64 encoded PDF to bytes
                 pdf_bytes = base64.b64decode(self.pdf)
 
@@ -128,7 +133,7 @@ class Documents(models.Model):
         """
         try:
             # Check if the img field is already binary
-            if not isinstance(self.img, bytes):
+            if isinstance(self.img, str):
                 # Decode the base64 encoded img to bytes
                 img_bytes = base64.b64decode(self.img)
 

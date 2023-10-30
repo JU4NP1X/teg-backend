@@ -58,8 +58,7 @@ class DocumentsSerializer(serializers.ModelSerializer):
     created_by = serializers.SerializerMethodField()
     updated_by = serializers.SerializerMethodField()
     predicted_trees = serializers.MultipleChoiceField(
-        choices=get_predicted_trees(),
-        write_only=True,
+        choices=get_predicted_trees(), write_only=True, required=False
     )
 
     class Meta:
@@ -102,57 +101,6 @@ class DocumentsSerializer(serializers.ModelSerializer):
                 representation["pdf"] = pdf_base64
 
         return representation
-
-    def create(self, validated_data):
-        # Obtener el array de números adicional
-        predicted_trees = self.context.get("predicted_trees")
-
-        # Validar que todos los elementos sean números
-        for num in predicted_trees:
-            if not isinstance(num, (int, float)):
-                raise serializers.ValidationError(
-                    "The array must contain only numbers."
-                )
-
-        validated_data["predicted_trees"] = predicted_trees
-
-        instance = super().create(validated_data)
-
-        return instance
-
-    def update(self, validated_data):
-        # Obtener el array de números adicional
-        predicted_trees = self.context.get("predicted_trees")
-
-        # Validar que todos los elementos sean números
-        for num in predicted_trees:
-            if not isinstance(num, (int, float)):
-                raise serializers.ValidationError(
-                    "The array must contain only numbers."
-                )
-
-        validated_data["predicted_trees"] = predicted_trees
-
-        instance = super().create(validated_data)
-
-        return instance
-
-    def partial_update(self, validated_data):
-        # Obtener el array de números adicional
-        predicted_trees = self.context.get("predicted_trees")
-
-        # Validar que todos los elementos sean números
-        for num in predicted_trees:
-            if not isinstance(num, (int, float)):
-                raise serializers.ValidationError(
-                    "The array must contain only numbers."
-                )
-
-        validated_data["predicted_trees"] = predicted_trees
-
-        instance = super().create(validated_data)
-
-        return instance
 
 
 class DocumentsTextExtractorSerializer(serializers.Serializer):
