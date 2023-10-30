@@ -25,7 +25,7 @@ class UnescoScraper:
 
     def __init__(self):
         self.base_url = "https://vocabularies.unesco.org/browser"
-        self.alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        self.alphabet = ""
         self.timeout = 15
         self.authority = Authorities.objects.get(name="UNESCO")
 
@@ -43,8 +43,9 @@ class UnescoScraper:
 
         results_2_detail = (
             Categories.objects.filter(authority=self.authority)
-            .filter(translations=None, deprecated=False)
+            .filter(deprecated=False)
             .exclude(link="")
+            .exclude(translations__language="es")
         )
         for result in tqdm(results_2_detail, desc="Getting details"):
             self.get_details(result)
