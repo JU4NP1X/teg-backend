@@ -215,6 +215,7 @@ class Authorities(models.Model):
             if original_instance.active != self.active:  # Check if 'active' has changed
                 try_again = True
                 while try_again:
+                    try_again = False
                     try:
                         with db_mutex(str(self.pk)):
                             if not self.active:
@@ -227,7 +228,8 @@ class Authorities(models.Model):
                                     loaded_at=datetime.now(timezone.utc),
                                 )
                             gc.collect()
-                    except DBMutexError:
+                    except DBMutexError as e:
+                        print(e)
                         try_again = True
 
         super().save(*args, **kwargs)

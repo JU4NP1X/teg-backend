@@ -101,15 +101,15 @@ class CategoriesClassifier(pl.LightningModule):
 
         create_pretrained_copy(model_path, config["model_name"])
         self.pretrained_model = AutoModel.from_pretrained(model_path, return_dict=True)
-        self.hidden_1 = torch.nn.Linear(
+        self.hidden = torch.nn.Linear(
             self.pretrained_model.config.hidden_size,
-            self.pretrained_model.config.hidden_size * 2,
+            self.pretrained_model.config.hidden_size,
         )
 
-        self.hidden_2 = torch.nn.Linear(
-            self.pretrained_model.config.hidden_size * 2,
-            self.pretrained_model.config.hidden_size,
-        )
+        # self.hidden_2 = torch.nn.Linear(
+        #    self.pretrained_model.config.hidden_size * 2,
+        #    self.pretrained_model.config.hidden_size,
+        # )
 
         self.classifier = torch.nn.Linear(
             self.pretrained_model.config.hidden_size, self.config["n_labels"]
@@ -135,10 +135,10 @@ class CategoriesClassifier(pl.LightningModule):
         )
         pooled_output = torch.mean(output.last_hidden_state, 1)
         pooled_output = self.dropout(pooled_output)
-        pooled_output = self.hidden_1(pooled_output)
-        pooled_output = F.relu(pooled_output)
-        pooled_output = self.dropout(pooled_output)
-        pooled_output = self.hidden_2(pooled_output)
+        pooled_output = self.hidden(pooled_output)
+        # pooled_output = F.relu(pooled_output)
+        # pooled_output = self.dropout(pooled_output)
+        # pooled_output = self.hidden_2(pooled_output)
 
         pooled_output = F.relu(pooled_output)
         pooled_output = self.dropout(pooled_output)
