@@ -3,12 +3,32 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAdminUser, IsAuthenticated, BasePermission
 from rest_framework.response import Response
 from google.auth.transport import requests
+from rest_framework_simplejwt.tokens import RefreshToken, OutstandingToken
+from google.oauth2 import id_token
+from django_filters import rest_framework as filters
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import SearchFilter, OrderingFilter
+from google.auth.transport import requests
 from utils.response_messages import RESPONSE_MESSAGES
 from .models import User
 from .serializers import UsersSerializer, UserLoginSerializer, UserGoogleLoginSerializer
-from rest_framework_simplejwt.tokens import RefreshToken, OutstandingToken
-from google.oauth2 import id_token
-from google.auth.transport import requests
+
+
+class UserFilter(filters.FilterSet):
+    """
+    FilterSet for Categories model.
+
+    Attributes:
+    """
+
+    is_admin = filters.BaseInFilter(
+        field_name="is_staff",
+        label="If the user is an admin",
+    )
+
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "email", "is_staff"]
 
 
 class IsSelf(BasePermission):
@@ -36,6 +56,9 @@ class UsersViewSet(viewsets.ModelViewSet):
     Managing User objects.
     """
 
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    search_fields = ["first_name", "last_name", "email"]
+    filterset_class = UserFilter
     queryset = User.objects.all()
     serializer_class = UsersSerializer
     permission_classes = [IsAuthenticated]

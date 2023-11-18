@@ -67,7 +67,7 @@ class CustomLoss(pl.LightningModule):
             torch.ones_like(input_probs) - input_probs, ones_mask
         )
 
-        # Assign higher weight to cases where expected output is 0 and predicted output is 1
+        # Only is important the mean of the 0 that are correct or not
         zeros_loss = torch.masked_select(input_probs, zeros_mask)
 
         # Combine the two losses
