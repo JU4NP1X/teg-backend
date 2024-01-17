@@ -590,33 +590,33 @@ class LoadPrecitor(viewsets.ViewSet):
 
     def create(self, request):
         try:
-            # Obtener el archivo zip del request
+            # Get the zip file from the request
             zip_file = request.FILES.get("zip_file")
 
-            # Crear un directorio temporal
+            # Create a temporary directory
             temp_dir = tempfile.mkdtemp()
 
-            # Extraer el archivo zip en el directorio temporal
+            # Extract the zip file into the temporary directory
             with zipfile.ZipFile(zip_file, "r") as zip_ref:
                 zip_ref.extractall(temp_dir)
 
-            # Obtener el archivo categories.json
+            # Get the categories.json file
             categories_file_path = os.path.join(temp_dir, "categories.json")
             with open(categories_file_path, "r") as categories_file:
                 categories_data = json.loads(categories_file.read())
 
-            # Obtener los datos del archivo categories.json
+            # Get the data from the categories.json file
             authority_id = categories_data["authority_id"]
             categories = categories_data["categories"]
 
-            # Guardar el modelo en la ubicación especificada
+            # Save the model to the specified location
             path = os.path.join(
                 BASE_DIR, f"trained_model/{authority_id}/model_weights.pt"
             )
             os.makedirs(os.path.dirname(path), exist_ok=True)
             os.rename(os.path.join(temp_dir, "model_weights.pt"), path)
 
-            # Establecer las categorías
+            # Set the categories
             Categories.objects.filter(authority_id=authority_id).update(
                 label_index=None
             )
@@ -627,7 +627,7 @@ class LoadPrecitor(viewsets.ViewSet):
                 category.save()
                 index += 1
 
-            # Eliminar el directorio temporal
+            # Remove the temporary directory
             shutil.rmtree(temp_dir)
 
             return Response(

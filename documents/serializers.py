@@ -1,12 +1,14 @@
 import base64
 from rest_framework import serializers
+from django.conf import settings
 from categories.models import Categories, Translations, Authorities
 from categories.serializers import TranslationsSerializer
 from users.models import User
 from .models import Documents
 
-
 def get_predicted_trees():
+    if settings.DEBUG:
+        return []
     try:
         return Categories.objects.filter(
             deprecated=False, parent=None, level=0

@@ -1,7 +1,6 @@
-from django.db.models import Count, Q, Subquery, OuterRef, IntegerField, Value, Func
+from django.db.models import Count, Q, Subquery, IntegerField, Func
 from django.db.models.functions import Coalesce
 from rest_framework import serializers
-from django.contrib.postgres.aggregates import ArrayAgg
 from .models import Categories, Translations, Authorities
 from datasets.models import Datasets
 
